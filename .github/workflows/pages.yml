@@ -17,7 +17,6 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    environment: github-pages
     env:
       GITHUB_PAGES: "true"
       VITE_RELAY_URL: "wss://qev-workspace.onrender.com/ws"
@@ -31,13 +30,12 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile=false
-      - run: pnpm --filter @qev-workspace/protocol build
-      - run: pnpm --filter @qev-workspace/crypto build
-      - run: pnpm --filter @qev-workspace/web build
+      - run: pnpm run build:web
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
           path: apps/web/dist
+
   deploy:
     environment:
       name: github-pages

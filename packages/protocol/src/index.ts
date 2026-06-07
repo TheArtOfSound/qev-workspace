@@ -1,126 +1,124 @@
-export type ISODateString = string;
+export type DeviceIdentityPublic = {
+  deviceId: string;
+  displayName: string;
+  publicKey: string;
+  createdAt: string;
+};
 
-export type ProtocolMessageType =
+export type MessageType =
   | "room.create"
   | "room.created"
   | "room.join"
   | "room.joined"
   | "room.peer_joined"
+  | "room.peer_left"
   | "signal.offer"
   | "signal.answer"
   | "signal.ice"
+  | "pointer.move"
   | "permission.request"
   | "permission.grant"
   | "permission.revoke"
-  | "permission.expired"
   | "audit.event"
   | "session.end"
+  | "heartbeat"
   | "error";
 
-export type PermissionName =
-  | "can_view_screen"
-  | "can_control_mouse"
-  | "can_control_keyboard"
-  | "can_offer_clipboard"
-  | "can_offer_file";
-
-export interface DeviceIdentityPublic {
-  deviceId: string;
-  displayName: string;
-  publicKey: string;
-  createdAt: ISODateString;
-}
-
-export interface PermissionGrant {
-  sessionId: string;
-  issuerDeviceId: string;
-  holderDeviceId: string;
-  permission: PermissionName;
-  permissionEpoch: number;
-  grantedAt: ISODateString;
-  expiresAt: ISODateString;
-  revokedAt?: ISODateString;
-}
-
-export interface ProtocolEnvelope<TPayload = unknown> {
-  type: ProtocolMessageType;
-  sessionId?: string;
+export type ProtocolEnvelope<T = unknown> = {
+  id: string;
+  type: MessageType;
+  sentAt: string;
   roomCode?: string;
   senderDeviceId?: string;
-  counter?: number;
-  sentAt: ISODateString;
-  payload: TPayload;
-}
+  payload: T;
+};
 
-export interface RoomCreatedPayload {
+export type RoomCreatedPayload = {
   roomCode: string;
   sessionId: string;
-  expiresAt: ISODateString;
-}
+  expiresAt: string;
+};
 
-export interface JoinRoomPayload {
+export type RoomJoinedPayload = {
   roomCode: string;
-  device: DeviceIdentityPublic;
-}
-
-export interface SignalPayload {
-  roomCode: string;
-  targetDeviceId?: string;
-  description?: RTCSessionDescriptionInit;
-  candidate?: RTCIceCandidateInit;
-}
-
-export interface AuditEvent {
-  eventId: string;
   sessionId: string;
-  type:
-    | "audit.session_created"
-    | "audit.peer_joined"
-    | "audit.screen_share_started"
-    | "audit.screen_share_stopped"
-    | "audit.control_requested"
-    | "audit.control_granted"
-    | "audit.control_revoked"
-    | "audit.session_ended";
-  actorDeviceId?: string;
-  peerDeviceId?: string;
-  timestamp: ISODateString;
-  metadata?: Record<string, unknown>;
-}
+  peer?: DeviceIdentityPublic;
+};
 
-export function nowIso(): ISODateString {
+export type PeerJoinedPayload = {
+  roomCode: string;
+  sessionId: string;
+  device?: DeviceIdentityPublic;
+};
+
+export type PointerPayload = {
+  x: number;
+  y: number;
+  label: string;
+};
+
+export function nowIso(): string {
   return new Date().toISOString();
 }
 
-export function createEnvelope<TPayload>(
-  type: ProtocolMessageType,
-  payload: TPayload,
-  extra: Omit<Partial<ProtocolEnvelope<TPayload>>, "type" | "payload" | "sentAt"> = {},
-): ProtocolEnvelope<TPayload> {
+export function createEnvelope<T>(
+  type: MessageType,
+  payload: T,
+  options: {
+    roomCode?: string;
+    senderDeviceId?: string;
+  } = {},
+): ProtocolEnvelope<T> {
   return {
+    id: createId("msg"),
     type,
-    payload,
     sentAt: nowIso(),
-    ...extra,
+    roomCode: options.roomCode,
+    senderDeviceId: options.senderDeviceId,
+    payload,
   };
 }
 
 export function isProtocolEnvelope(value: unknown): value is ProtocolEnvelope {
   if (!value || typeof value !== "object") return false;
-  const candidate = value as Partial<ProtocolEnvelope>;
-  return typeof candidate.type === "string" && typeof candidate.sentAt === "string" && "payload" in candidate;
-}
-
-export function generateRoomCode(): string {
-  const number = Math.floor(1000 + Math.random() * 9000);
-  const words = ["ALPHA", "BRAVO", "CIPHER", "DELTA", "ECHO", "VAULT"];
-  const word = words[Math.floor(Math.random() * words.length)];
-  return `QEV-${number}-${word}`;
+  const record = value as Record<string, unknown>;
+  return (
+    typeof record.id === "string" &&
+    typeof record.type === "string" &&
+    typeof record.sentAt === "string" &&
+    "payload" in record
+  );
 }
 
 export function createId(prefix: string): string {
-  const bytes = new Uint8Array(12);
-  crypto.getRandomValues(bytes);
-  const body = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
-  return `${prefix}_${body}`;
+  return `${prefix}_${randomHex(16)}`;
+}
+
+export function generateRoomCode(): string {
+  const words = ["ALPHA", "BRAVO", "CIPHER", "DELTA", "ECHO", "FORT", "NOVA", "ORBIT", "VAULT"];
+  const n = Math.floor(1000 + Math.random() * 9000);
+  const word = words[Math.floor(Math.random() * words.length)] ?? "ALPHA";
+  return `QEV-${n}-${word}`;
+}
+
+export function safetyNumber(sessionId: string, a: string, b: string): string {
+  const joined = [sessionId, a, b].sort().join(":");
+  let hash = 2166136261;
+  for (let i = 0; i < joined.length; i += 1) {
+    hash ^= joined.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  const value = Math.abs(hash >>> 0).toString().padStart(10, "0").slice(0, 9);
+  return `${value.slice(0, 3)}-${value.slice(3, 6)}-${value.slice(6, 9)}`;
+}
+
+function randomHex(bytes: number): string {
+  const data = new Uint8Array(bytes);
+  const cryptoApi = globalThis.crypto;
+  if (cryptoApi?.getRandomValues) {
+    cryptoApi.getRandomValues(data);
+  } else {
+    for (let i = 0; i < data.length; i += 1) data[i] = Math.floor(Math.random() * 256);
+  }
+  return Array.from(data, (b) => b.toString(16).padStart(2, "0")).join("");
 }

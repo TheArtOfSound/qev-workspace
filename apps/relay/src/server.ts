@@ -14,23 +14,24 @@ import {
 const PORT = Number(process.env.PORT ?? 8787);
 const ROOM_TTL_MS = Number(process.env.ROOM_TTL_MS ?? 5 * 60 * 1000);
 const ALLOWED_ORIGINS = parseAllowedOrigins(
-  process.env.ALLOWED_ORIGINS ?? process.env.ALLOWED_ORIGIN ?? "http://localhost:5173",
+  process.env.ALLOWED_ORIGINS ?? process.env.ALLOWED_ORIGIN ?? "http://localhost:5173,https://theartofsound.github.io",
 );
 
-type Peer = {
-  device?: DeviceIdentityPublic;
-  socket: WebSocketLike;
-  joinedAt: number;
-};
+type IncomingMessageData = { toString(): string };
 
 type WebSocketLike = {
   send(data: string): void;
   close(code?: number, reason?: string): void;
   readyState: number;
+  on(event: "message", cb: (raw: IncomingMessageData) => void): void;
+  on(event: "close", cb: () => void): void;
 };
 
-type IncomingMessageData = {
-  toString(): string;
+type Peer = {
+  peerId: string;
+  device?: DeviceIdentityPublic;
+  socket: WebSocketLike;
+  joinedAt: number;
 };
 
 type Room = {
@@ -47,9 +48,25 @@ const socketToRoom = new WeakMap<WebSocketLike, { roomCode: string; peerId: stri
 const app = Fastify({ logger: true });
 await app.register(websocket);
 
-app.get("/health", async () => ({ ok: true, service: "qev-workspace-relay", time: nowIso() }));
+app.get("/", async () => ({
+  ok: true,
+  service: "qev-workspace-relay",
+  health: "/health",
+  websocket: "/ws",
+  rooms: rooms.size,
+  time: nowIso(),
+}));
+
+app.get("/health", async () => ({
+  ok: true,
+  service: "qev-workspace-relay",
+  rooms: rooms.size,
+  time: nowIso(),
+}));
 
 app.get("/ws", { websocket: true }, (connection, request) => {
+  cleanupExpiredRooms();
+
   const origin = request.headers.origin;
   if (origin && !isAllowedOrigin(origin)) {
     connection.close(1008, "origin_not_allowed");
@@ -58,7 +75,7 @@ app.get("/ws", { websocket: true }, (connection, request) => {
 
   const socket = connection as unknown as WebSocketLike;
 
-  connection.on("message", (raw: IncomingMessageData) => {
+  socket.on("message", (raw: IncomingMessageData) => {
     let parsed: unknown;
     try {
       parsed = JSON.parse(raw.toString());
@@ -75,9 +92,7 @@ app.get("/ws", { websocket: true }, (connection, request) => {
     handleMessage(socket, parsed);
   });
 
-  connection.on("close", () => {
-    removeSocket(socket);
-  });
+  socket.on("close", () => removeSocket(socket));
 });
 
 function handleMessage(socket: WebSocketLike, message: ProtocolEnvelope): void {
@@ -85,20 +100,25 @@ function handleMessage(socket: WebSocketLike, message: ProtocolEnvelope): void {
 
   switch (message.type) {
     case "room.create": {
+      const payload = asRecord(message.payload);
+      const device = asDevice(payload.device);
       const roomCode = uniqueRoomCode();
       const sessionId = createId("sess");
       const createdAt = Date.now();
       const expiresAt = createdAt + ROOM_TTL_MS;
       const peerId = createId("peer");
+
       const room: Room = {
         roomCode,
         sessionId,
         createdAt,
         expiresAt,
-        peers: new Map([[peerId, { socket, joinedAt: createdAt }]]),
+        peers: new Map([[peerId, { peerId, socket, joinedAt: createdAt, device }]]),
       };
+
       rooms.set(roomCode, room);
       socketToRoom.set(socket, { roomCode, peerId });
+
       send<RoomCreatedPayload>(
         socket,
         createEnvelope("room.created", {
@@ -114,44 +134,68 @@ function handleMessage(socket: WebSocketLike, message: ProtocolEnvelope): void {
       const payload = asRecord(message.payload);
       const roomCode = String(payload.roomCode ?? "").trim().toUpperCase();
       const room = rooms.get(roomCode);
+      const device = asDevice(payload.device);
+
       if (!room || room.expiresAt < Date.now()) {
         send(socket, createEnvelope("error", { code: "room_not_found_or_expired" }));
         return;
       }
+
       if (room.peers.size >= 2) {
         send(socket, createEnvelope("error", { code: "room_full" }));
         return;
       }
 
+      const existingPeer = [...room.peers.values()][0];
       const peerId = createId("peer");
-      const device = payload.device && typeof payload.device === "object" ? (payload.device as DeviceIdentityPublic) : undefined;
-      room.peers.set(peerId, { socket, joinedAt: Date.now(), device });
+      room.peers.set(peerId, { peerId, socket, joinedAt: Date.now(), device });
       socketToRoom.set(socket, { roomCode, peerId });
 
-      send(socket, createEnvelope("room.joined", { roomCode, sessionId: room.sessionId }));
-      broadcast(room, socket, createEnvelope("room.peer_joined", { roomCode, sessionId: room.sessionId, device }));
+      send(
+        socket,
+        createEnvelope("room.joined", {
+          roomCode,
+          sessionId: room.sessionId,
+          peer: existingPeer?.device,
+        }),
+      );
+
+      broadcast(
+        room,
+        socket,
+        createEnvelope("room.peer_joined", {
+          roomCode,
+          sessionId: room.sessionId,
+          device,
+        }),
+      );
       return;
     }
 
     case "signal.offer":
     case "signal.answer":
     case "signal.ice":
+    case "pointer.move":
     case "permission.request":
     case "permission.grant":
     case "permission.revoke":
     case "audit.event":
+    case "heartbeat":
     case "session.end": {
       const membership = socketToRoom.get(socket);
       if (!membership) {
         send(socket, createEnvelope("error", { code: "not_in_room" }));
         return;
       }
+
       const room = rooms.get(membership.roomCode);
       if (!room) {
         send(socket, createEnvelope("error", { code: "room_missing" }));
         return;
       }
+
       broadcast(room, socket, message);
+
       if (message.type === "session.end") {
         closeRoom(room.roomCode, "session_ended");
       }
@@ -175,7 +219,7 @@ function send<T>(socket: WebSocketLike, message: ProtocolEnvelope<T>): void {
 }
 
 function uniqueRoomCode(): string {
-  for (let i = 0; i < 25; i += 1) {
+  for (let i = 0; i < 50; i += 1) {
     const code = generateRoomCode();
     if (!rooms.has(code)) return code;
   }
@@ -185,11 +229,18 @@ function uniqueRoomCode(): string {
 function removeSocket(socket: WebSocketLike): void {
   const membership = socketToRoom.get(socket);
   if (!membership) return;
+
   const room = rooms.get(membership.roomCode);
   if (!room) return;
+
   room.peers.delete(membership.peerId);
-  if (room.peers.size === 0) rooms.delete(membership.roomCode);
-  else broadcast(room, socket, createEnvelope("session.end", { reason: "peer_disconnected" }));
+
+  if (room.peers.size === 0) {
+    rooms.delete(membership.roomCode);
+    return;
+  }
+
+  broadcast(room, socket, createEnvelope("room.peer_left", { reason: "peer_disconnected" }));
 }
 
 function closeRoom(roomCode: string, reason: string): void {
@@ -210,6 +261,16 @@ function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
 }
 
+function asDevice(value: unknown): DeviceIdentityPublic | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const record = value as Record<string, unknown>;
+  if (typeof record.deviceId !== "string") return undefined;
+  if (typeof record.displayName !== "string") return undefined;
+  if (typeof record.publicKey !== "string") return undefined;
+  if (typeof record.createdAt !== "string") return undefined;
+  return record as DeviceIdentityPublic;
+}
+
 function parseAllowedOrigins(raw: string): Set<string> {
   return new Set(
     raw
@@ -220,8 +281,8 @@ function parseAllowedOrigins(raw: string): Set<string> {
 }
 
 function isAllowedOrigin(origin: string): boolean {
-  const normalizedOrigin = origin.trim().replace(/\/$/, "");
-  return ALLOWED_ORIGINS.has("*") || ALLOWED_ORIGINS.has(normalizedOrigin);
+  const normalized = origin.trim().replace(/\/$/, "");
+  return ALLOWED_ORIGINS.has("*") || ALLOWED_ORIGINS.has(normalized);
 }
 
 await app.listen({ port: PORT, host: "0.0.0.0" });

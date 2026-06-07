@@ -1,13 +1,13 @@
 services:
   - type: web
-    name: qev-workspace-relay
+    name: qev-workspace
     runtime: node
     plan: free
-    branch: main
     rootDir: .
-    buildCommand: corepack enable && corepack prepare pnpm@9.15.0 --activate && pnpm install --frozen-lockfile=false && pnpm --filter @qev-workspace/protocol build && pnpm --filter @qev-workspace/relay build
+    buildCommand: corepack enable && corepack prepare pnpm@9.15.0 --activate && pnpm install --frozen-lockfile=false && pnpm run build:relay
     startCommand: pnpm --filter @qev-workspace/relay start
     healthCheckPath: /health
+    autoDeploy: true
     envVars:
       - key: NODE_VERSION
         value: 22
