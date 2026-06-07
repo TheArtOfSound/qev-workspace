@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, type MouseEvent } from "react";
 import {
   BrowserQevVaultAdapter,
   decryptJson,
@@ -390,7 +390,7 @@ export function App() {
     });
   }
 
-  async function sendEncryptedPointerIntent(event: React.MouseEvent<HTMLVideoElement>, kind: "pointer.move" | "pointer.click"): Promise<void> {
+  async function sendEncryptedPointerIntent(event: MouseEvent<HTMLVideoElement>, kind: "pointer.move" | "pointer.click"): Promise<void> {
     if (!hasActiveViewerGrant || !viewerGrant || !sessionKey || !device || !roomCode) return;
 
     const client = signalingRef.current;
