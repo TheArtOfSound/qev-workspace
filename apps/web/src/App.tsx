@@ -1,8 +1,24 @@
 import { useMemo, useRef, useState } from "react";
-import { BrowserQevVaultAdapter, sessionFingerprint, type DeviceIdentity } from "@qev-workspace/crypto";
-import { type DeviceIdentityPublic, type PointerPayload, type ProtocolEnvelope } from "@qev-workspace/protocol";
+import {
+  BrowserQevVaultAdapter,
+  decryptJson,
+  derivePeerSessionKey,
+  encryptJson,
+  sessionFingerprint,
+  type DeviceIdentity,
+} from "@qev-workspace/crypto";
+import {
+  createId,
+  type ControlGrantPayload,
+  type ControlIntentPlaintext,
+  type DeviceIdentityPublic,
+  type EncryptedPayload,
+  type PointerPayload,
+  type ProtocolEnvelope,
+} from "@qev-workspace/protocol";
 import { SignalingClient, type SignalingStatus } from "./signaling";
 import { QevPeer } from "./webrtc";
+import { buildAgentCommand, buildAgentLaunchUrl, createPointerGrant, isGrantActive, type ControlGrant } from "./control";
 
 const DEFAULT_RELAY_URL = import.meta.env.VITE_RELAY_URL ?? "wss://qev-workspace.onrender.com/ws";
 
@@ -18,6 +34,8 @@ export function App() {
   const [displayName, setDisplayName] = useState("QEV User");
   const [device, setDevice] = useState<DeviceIdentity | null>(null);
   const [peerDevice, setPeerDevice] = useState<DeviceIdentityPublic | null>(null);
+  const [sessionKey, setSessionKey] = useState<CryptoKey | null>(null);
+
   const [roomCode, setRoomCode] = useState("");
   const [sessionId, setSessionId] = useState("");
   const [relayStatus, setRelayStatus] = useState<SignalingStatus>("idle");
@@ -26,11 +44,23 @@ export function App() {
   const [remoteVisible, setRemoteVisible] = useState(false);
   const [pointer, setPointer] = useState<PointerPayload | null>(null);
   const [error, setError] = useState("");
+  const [controlRequested, setControlRequested] = useState(false);
+  const [controlGrant, setControlGrant] = useState<ControlGrant | null>(null);
+  const [agentCommandCopied, setAgentCommandCopied] = useState(false);
+
+  const [incomingControlRequest, setIncomingControlRequest] = useState(false);
+  const [viewerGrant, setViewerGrant] = useState<ControlGrantPayload | null>(null);
+  const [hostGrant, setHostGrant] = useState<ControlGrantPayload | null>(null);
+  const [lastControlIntent, setLastControlIntent] = useState("");
 
   const fingerprint = device && sessionId ? sessionFingerprint(sessionId, device.deviceId, peerDevice?.deviceId) : "pending peer";
-  const canCreate = relayStatus !== "connecting";
   const canJoin = relayStatus !== "connecting" && roomCode.trim().length >= 8;
   const canShare = Boolean(roomCode && sessionId && relayStatus === "open");
+  const activeControlGrant = isGrantActive(controlGrant);
+  const agentCommand = controlGrant ? buildAgentCommand(controlGrant) : "";
+  const agentLaunchUrl = controlGrant ? buildAgentLaunchUrl(controlGrant) : "";
+  const hasActiveViewerGrant = Boolean(viewerGrant && new Date(viewerGrant.expiresAt).getTime() > Date.now());
+  const hasActiveHostGrant = Boolean(hostGrant && new Date(hostGrant.expiresAt).getTime() > Date.now());
 
   async function ensureDevice(): Promise<DeviceIdentity> {
     const existing = device ?? (await vault.loadDeviceIdentity());
@@ -43,6 +73,16 @@ export function App() {
     setDevice(created);
     addAudit(`Device identity created: ${created.deviceId}`);
     return created;
+  }
+
+  async function establishSessionKey(local: DeviceIdentity, peer: DeviceIdentityPublic | null | undefined): Promise<void> {
+    if (!peer) {
+      setSessionKey(null);
+      return;
+    }
+    const key = await derivePeerSessionKey(local, peer);
+    setSessionKey(key);
+    addAudit("QEV session encryption key established with peer.");
   }
 
   async function connect(): Promise<SignalingClient> {
@@ -58,11 +98,7 @@ export function App() {
 
   async function createSession(): Promise<void> {
     await safe(async () => {
-      setSessionStatus("none");
-      setPeerDevice(null);
-      setRemoteVisible(false);
-      setRoomCode("");
-      setSessionId("");
+      clearPeerState();
       const dev = await ensureDevice();
       const client = await connect();
       client.createRoom(dev);
@@ -96,12 +132,72 @@ export function App() {
     });
   }
 
+  async function requestControl(): Promise<void> {
+    await safe(async () => {
+      const dev = await ensureDevice();
+      const client = signalingRef.current;
+      if (!client || !roomCode) throw new Error("Join a session first.");
+      if (!peerDevice) throw new Error("No peer connected yet.");
+
+      client.sendSignal(
+        "control.request",
+        roomCode,
+        {
+          scopes: ["pointer"],
+          reason: "Viewer requested pointer control.",
+          requestedAt: new Date().toISOString(),
+        },
+        dev.deviceId,
+      );
+
+      addAudit("Control request sent to host.");
+    });
+  }
+
+  async function grantPointerControl(): Promise<void> {
+    await safe(async () => {
+      const dev = await ensureDevice();
+      const client = signalingRef.current;
+      if (!client || !roomCode) throw new Error("No active session.");
+      if (!peerDevice) throw new Error("No peer to grant control to.");
+
+      const grant: ControlGrantPayload = {
+        grantId: createId("grant"),
+        scopes: ["pointer"],
+        expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+        grantedByDeviceId: dev.deviceId,
+        grantedToDeviceId: peerDevice.deviceId,
+      };
+
+      setHostGrant(grant);
+      setIncomingControlRequest(false);
+      client.sendSignal("control.grant", roomCode, grant, dev.deviceId);
+      addAudit(`Pointer control granted to ${peerDevice.displayName} for 5 minutes.`);
+    });
+  }
+
+  function revokeControl(): void {
+    const client = signalingRef.current;
+    if (device && client && roomCode) {
+      try {
+        client.sendSignal("control.revoke", roomCode, { reason: "host_revoked", at: new Date().toISOString() }, device.deviceId);
+      } catch {
+        // ignore
+      }
+    }
+
+    setHostGrant(null);
+    setViewerGrant(null);
+    setIncomingControlRequest(false);
+    addAudit("Remote control revoked.");
+  }
+
   function endSession(): void {
     if (device && roomCode) {
       try {
         signalingRef.current?.endSession(roomCode, device.deviceId);
       } catch {
-        // Ignore end-session send failures.
+        // ignore
       }
     }
 
@@ -112,13 +208,16 @@ export function App() {
     setRelayStatus("closed");
     setSessionStatus("ended");
     setRemoteVisible(false);
+    setHostGrant(null);
+    setViewerGrant(null);
+    setIncomingControlRequest(false);
     addAudit("Session ended locally.");
   }
 
   async function resetIdentity(): Promise<void> {
     await vault.resetDeviceIdentity();
     setDevice(null);
-    setPeerDevice(null);
+    clearPeerState();
     addAudit("Local device identity reset.");
   }
 
@@ -137,6 +236,7 @@ export function App() {
       setRoomCode(payload.roomCode);
       setSessionId(payload.sessionId);
       setPeerDevice(payload.peer ?? null);
+      await establishSessionKey(dev, payload.peer);
       setSessionStatus("joined");
       addAudit(`Joined room: ${payload.roomCode}.`);
       return;
@@ -145,6 +245,7 @@ export function App() {
     if (message.type === "room.peer_joined") {
       const payload = message.payload as { device?: DeviceIdentityPublic };
       setPeerDevice(payload.device ?? null);
+      await establishSessionKey(dev, payload.device);
       setSessionStatus("peer-connected");
       addAudit(`Peer joined: ${payload.device?.displayName ?? "unknown device"}.`);
       return;
@@ -152,7 +253,7 @@ export function App() {
 
     if (message.type === "room.peer_left") {
       addAudit("Peer disconnected.");
-      setPeerDevice(null);
+      clearPeerState();
       setSessionStatus("created");
       return;
     }
@@ -182,6 +283,51 @@ export function App() {
       return;
     }
 
+    if (message.type === "control.request") {
+      setIncomingControlRequest(true);
+      addAudit("Peer requested pointer control. Host approval required.");
+      return;
+    }
+
+    if (message.type === "control.grant") {
+      const grant = message.payload as ControlGrantPayload;
+      setViewerGrant(grant);
+      addAudit(`Pointer control granted until ${new Date(grant.expiresAt).toLocaleTimeString()}.`);
+      return;
+    }
+
+    if (message.type === "control.revoke") {
+      setViewerGrant(null);
+      setHostGrant(null);
+      addAudit("Peer revoked remote control.");
+      return;
+    }
+
+    if (message.type === "control.intent") {
+      await receiveEncryptedControlIntent(message.payload as EncryptedPayload);
+      return;
+    }
+
+    if (message.type === "permission.request") {
+      setControlRequested(true);
+      addAudit("Peer requested pointer control.");
+      return;
+    }
+
+    if (message.type === "permission.grant") {
+      const payload = message.payload as { grantId?: string; expiresAt?: string };
+      addAudit(`Pointer-control grant received: ${payload.grantId ?? "unknown"}.`);
+      return;
+    }
+
+    if (message.type === "permission.revoke") {
+      setControlRequested(false);
+      setControlGrant(null);
+      setAgentCommandCopied(false);
+      addAudit("Pointer control revoked by peer.");
+      return;
+    }
+
     if (message.type === "session.end") {
       addAudit("Peer ended the session.");
       endSession();
@@ -192,6 +338,42 @@ export function App() {
       const text = `Relay error: ${JSON.stringify(message.payload)}`;
       setError(text);
       addAudit(text);
+    }
+  }
+
+  async function receiveEncryptedControlIntent(payload: EncryptedPayload): Promise<void> {
+    if (!sessionKey) {
+      addAudit("Rejected control intent: no QEV session key.");
+      return;
+    }
+
+    if (!hostGrant || new Date(hostGrant.expiresAt).getTime() <= Date.now()) {
+      addAudit("Rejected control intent: no active host grant.");
+      return;
+    }
+
+    try {
+      const intent = await decryptJson<ControlIntentPlaintext>(sessionKey, payload);
+
+      if (intent.grantId !== hostGrant.grantId) {
+        addAudit("Rejected control intent: grant mismatch.");
+        return;
+      }
+
+      if (intent.kind === "pointer.move" || intent.kind === "pointer.click") {
+        setPointer({
+          x: intent.x,
+          y: intent.y,
+          label: peerDevice?.displayName ?? "peer",
+        });
+        setLastControlIntent(intent.kind === "pointer.click" ? "Encrypted remote click received." : "Encrypted remote pointer move received.");
+      }
+
+      if (intent.kind === "keyboard.intent") {
+        setLastControlIntent(`Encrypted keyboard intent blocked in browser MVP: ${intent.key}`);
+      }
+    } catch {
+      addAudit("Rejected control intent: decrypt failed.");
     }
   }
 
@@ -208,15 +390,82 @@ export function App() {
     });
   }
 
-  function sendPointer(event: React.MouseEvent<HTMLVideoElement>): void {
+  async function sendEncryptedPointerIntent(event: React.MouseEvent<HTMLVideoElement>, kind: "pointer.move" | "pointer.click"): Promise<void> {
+    if (!hasActiveViewerGrant || !viewerGrant || !sessionKey || !device || !roomCode) return;
+
+    const client = signalingRef.current;
+    if (!client) return;
+
     const rect = event.currentTarget.getBoundingClientRect();
     const x = clamp((event.clientX - rect.left) / rect.width);
     const y = clamp((event.clientY - rect.top) / rect.height);
-    peerRef.current?.sendPointer({
-      x,
-      y,
-      label: displayName.trim() || "peer",
+
+    const intent: ControlIntentPlaintext =
+      kind === "pointer.click"
+        ? {
+            kind,
+            grantId: viewerGrant.grantId,
+            x,
+            y,
+            button: "left",
+            at: new Date().toISOString(),
+          }
+        : {
+            kind,
+            grantId: viewerGrant.grantId,
+            x,
+            y,
+            at: new Date().toISOString(),
+          };
+
+    const encrypted = await encryptJson(sessionKey, intent);
+    client.sendSignal("control.intent", roomCode, encrypted, device.deviceId);
+  }
+
+
+  async function grantControl(): Promise<void> {
+    await safe(async () => {
+      if (!roomCode || !sessionId) throw new Error("Create a session before granting control.");
+
+      const grant = createPointerGrant({
+        roomCode,
+        relayUrl,
+        hostName: displayName.trim() || "QEV Host",
+        minutes: 5,
+      });
+
+      setControlGrant(grant);
+      setControlRequested(false);
+      setAgentCommandCopied(false);
+
+      if (device && signalingRef.current) {
+        signalingRef.current.sendSignal(
+          "permission.grant",
+          roomCode,
+          {
+            grantId: grant.grantId,
+            scopes: grant.scopes,
+            expiresAt: grant.expiresAt,
+          },
+          device.deviceId,
+        );
+      }
+
+      addAudit(`Pointer control granted for 5 minutes. Grant: ${grant.grantId}`);
     });
+  }
+
+  async function copyAgentCommand(): Promise<void> {
+    if (!agentCommand) return;
+    await navigator.clipboard.writeText(agentCommand);
+    setAgentCommandCopied(true);
+    addAudit("Host-agent launch command copied.");
+  }
+
+  function launchAgent(): void {
+    if (!agentLaunchUrl) return;
+    window.location.href = agentLaunchUrl;
+    addAudit("Requested native QEV host-agent launch.");
   }
 
   async function safe(action: () => Promise<void>): Promise<void> {
@@ -230,8 +479,19 @@ export function App() {
     }
   }
 
+  function clearPeerState(): void {
+    setPeerDevice(null);
+    setSessionKey(null);
+    setRemoteVisible(false);
+    setPointer(null);
+    setHostGrant(null);
+    setViewerGrant(null);
+    setIncomingControlRequest(false);
+    setLastControlIntent("");
+  }
+
   function addAudit(message: string): void {
-    setAudit((current) => [`${new Date().toLocaleTimeString()} — ${message}`, ...current].slice(0, 40));
+    setAudit((current) => [`${new Date().toLocaleTimeString()} — ${message}`, ...current].slice(0, 60));
   }
 
   return (
@@ -241,8 +501,8 @@ export function App() {
           <p className="eyebrow">QEV Workspace</p>
           <h1>Consent-first remote workspace for teams.</h1>
           <p className="lede">
-            Share a screen, verify the peer, and keep the session visible. Native remote control remains locked
-            until the desktop-agent consent model is hardened.
+            Share a screen, verify the peer, and keep control permission explicit. Remote control is grant-based,
+            QEV-encrypted, time-limited, and revocable.
           </p>
           <div className="safety-line">No silent access. No unattended control. No hidden monitoring.</div>
         </div>
@@ -277,7 +537,7 @@ export function App() {
         <div className="panel">
           <h2>Session</h2>
           <div className="button-row">
-            <button disabled={!canCreate} onClick={() => void createSession()}>Create session</button>
+            <button onClick={() => void createSession()}>Create session</button>
             <button disabled={!canJoin} onClick={() => void joinSession()}>Join session</button>
           </div>
           <label>
@@ -296,9 +556,74 @@ export function App() {
           <p className="kv"><span>Session ID</span><strong>{sessionId || "not created"}</strong></p>
           <p className="kv"><span>Peer</span><strong>{peerDevice?.displayName ?? "pending"}</strong></p>
           <p className="kv"><span>Safety number</span><strong>{fingerprint}</strong></p>
+          <p className="kv"><span>QEV key</span><strong>{sessionKey ? "established" : "pending"}</strong></p>
           <div className={sessionStatus === "sharing" || sessionStatus === "viewing" ? "indicator live" : "indicator"}>
             {sessionStatus === "sharing" ? "You are sharing your screen" : sessionStatus === "viewing" ? "You are viewing a shared screen" : "No active screen session"}
           </div>
+        </div>
+
+        <div className="panel wide control-panel">
+          <h2>Remote control permission</h2>
+          <p>
+            Browser MVP supports encrypted control intents. OS mouse/keyboard injection remains blocked until the
+            native desktop agent is installed and explicitly approved.
+          </p>
+          <div className="button-row">
+            <button disabled={!remoteVisible || !sessionKey || hasActiveViewerGrant} onClick={() => void requestControl()}>
+              Request pointer control
+            </button>
+            <button disabled={!incomingControlRequest || !sessionKey} onClick={() => void grantPointerControl()}>
+              Grant pointer control for 5 minutes
+            </button>
+            <button className="danger" disabled={!hasActiveHostGrant && !hasActiveViewerGrant} onClick={revokeControl}>
+              Revoke control
+            </button>
+          </div>
+          <div className="control-grid">
+            <p className="kv"><span>Incoming request</span><strong>{incomingControlRequest ? "waiting for host approval" : "none"}</strong></p>
+            <p className="kv"><span>Viewer grant</span><strong>{hasActiveViewerGrant ? `active until ${new Date(viewerGrant!.expiresAt).toLocaleTimeString()}` : "none"}</strong></p>
+            <p className="kv"><span>Host grant</span><strong>{hasActiveHostGrant ? `active until ${new Date(hostGrant!.expiresAt).toLocaleTimeString()}` : "none"}</strong></p>
+            <p className="kv"><span>Last intent</span><strong>{lastControlIntent || "none"}</strong></p>
+          </div>
+        </div>
+
+        <div className="panel wide control-panel">
+          <h2>Remote control</h2>
+          <p>
+            Browser screen sharing is live. Actual OS control requires the visible QEV host agent on the machine being controlled.
+            Control is time-limited, revocable, and never silent.
+          </p>
+
+          <div className="button-row">
+            <button disabled={!sessionId || sessionStatus === "none"} onClick={() => void requestControl()}>
+              Request control
+            </button>
+            <button disabled={!sessionId} onClick={() => void grantControl()}>
+              Grant pointer control for 5 minutes
+            </button>
+            <button className="secondary" disabled={!controlGrant} onClick={() => void copyAgentCommand()}>
+              Copy host-agent command
+            </button>
+            <button className="secondary" disabled={!controlGrant} onClick={launchAgent}>
+              Launch installed agent
+            </button>
+            <button className="danger" disabled={!controlGrant && !controlRequested} onClick={revokeControl}>
+              Revoke control
+            </button>
+          </div>
+
+          <div className="control-grid">
+            <p className="kv"><span>Request</span><strong>{controlRequested ? "peer is requesting control" : "none"}</strong></p>
+            <p className="kv"><span>Grant</span><strong>{activeControlGrant ? "active" : "inactive"}</strong></p>
+            <p className="kv"><span>Grant ID</span><strong>{controlGrant?.grantId ?? "none"}</strong></p>
+            <p className="kv"><span>Expires</span><strong>{controlGrant ? new Date(controlGrant.expiresAt).toLocaleTimeString() : "none"}</strong></p>
+            <p className="kv"><span>Agent command</span><strong>{agentCommandCopied ? "copied" : controlGrant ? "ready" : "not generated"}</strong></p>
+            <p className="kv"><span>Native launch</span><strong>{controlGrant ? "qevworkspace:// ready" : "not ready"}</strong></p>
+          </div>
+
+          {controlGrant ? (
+            <pre className="agent-command">{agentCommand}</pre>
+          ) : null}
         </div>
 
         <div className="panel wide">
@@ -309,7 +634,8 @@ export function App() {
               className={remoteVisible ? "remote active" : "remote"}
               autoPlay
               playsInline
-              onMouseMove={sendPointer}
+              onMouseMove={(event) => void sendEncryptedPointerIntent(event, "pointer.move")}
+              onClick={(event) => void sendEncryptedPointerIntent(event, "pointer.click")}
             />
             {!remoteVisible ? <div className="empty-video">No remote stream attached yet.</div> : null}
             {pointer && remoteVisible ? (
