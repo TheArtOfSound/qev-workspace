@@ -29,6 +29,10 @@ type WebSocketLike = {
   readyState: number;
 };
 
+type IncomingMessageData = {
+  toString(): string;
+};
+
 type Room = {
   roomCode: string;
   sessionId: string;
@@ -54,7 +58,7 @@ app.get("/ws", { websocket: true }, (connection, request) => {
 
   const socket = connection as unknown as WebSocketLike;
 
-  connection.on("message", (raw) => {
+  connection.on("message", (raw: IncomingMessageData) => {
     let parsed: unknown;
     try {
       parsed = JSON.parse(raw.toString());
