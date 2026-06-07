@@ -13,7 +13,9 @@ import {
 
 const PORT = Number(process.env.PORT ?? 8787);
 const ROOM_TTL_MS = Number(process.env.ROOM_TTL_MS ?? 5 * 60 * 1000);
-const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN ?? "http://localhost:5173";
+const ALLOWED_ORIGINS = parseAllowedOrigins(
+  process.env.ALLOWED_ORIGINS ?? process.env.ALLOWED_ORIGIN ?? "http://localhost:5173",
+);
 
 type Peer = {
   device?: DeviceIdentityPublic;
@@ -45,7 +47,7 @@ app.get("/health", async () => ({ ok: true, service: "qev-workspace-relay", time
 
 app.get("/ws", { websocket: true }, (connection, request) => {
   const origin = request.headers.origin;
-  if (origin && origin !== ALLOWED_ORIGIN) {
+  if (origin && !isAllowedOrigin(origin)) {
     connection.close(1008, "origin_not_allowed");
     return;
   }
@@ -202,6 +204,20 @@ function cleanupExpiredRooms(): void {
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+}
+
+function parseAllowedOrigins(raw: string): Set<string> {
+  return new Set(
+    raw
+      .split(",")
+      .map((origin) => origin.trim().replace(/\/$/, ""))
+      .filter(Boolean),
+  );
+}
+
+function isAllowedOrigin(origin: string): boolean {
+  const normalizedOrigin = origin.trim().replace(/\/$/, "");
+  return ALLOWED_ORIGINS.has("*") || ALLOWED_ORIGINS.has(normalizedOrigin);
 }
 
 await app.listen({ port: PORT, host: "0.0.0.0" });
