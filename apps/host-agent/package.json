@@ -6,17 +6,11 @@
   "scripts": {
     "dev": "tsx src/agent.ts",
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/agent.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "tsc -p tsconfig.json --noEmit"
   },
-  "dependencies": {
-    "@qev-workspace/protocol": "workspace:*",
-    "ws": "^8.18.2"
-  },
   "devDependencies": {
     "@types/node": "^22.15.21",
-    "@types/ws": "^8.18.1",
     "tsx": "^4.19.4",
     "typescript": "^5.8.3"
   }

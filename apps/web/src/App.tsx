@@ -21,6 +21,7 @@ import { QevPeer } from "./webrtc";
 import { buildAgentCommand, buildAgentLaunchUrl, createPointerGrant, isGrantActive, type ControlGrant } from "./control";
 
 const DEFAULT_RELAY_URL = import.meta.env.VITE_RELAY_URL ?? "wss://qev-workspace.onrender.com/ws";
+const LOCAL_AGENT_URL = "http://127.0.0.1:39483";
 
 type SessionStatus = "none" | "created" | "joined" | "peer-connected" | "sharing" | "viewing" | "ended";
 
@@ -52,6 +53,7 @@ export function App() {
   const [viewerGrant, setViewerGrant] = useState<ControlGrantPayload | null>(null);
   const [hostGrant, setHostGrant] = useState<ControlGrantPayload | null>(null);
   const [lastControlIntent, setLastControlIntent] = useState("");
+  const [localAgentStatus, setLocalAgentStatus] = useState("not checked");
 
   const fingerprint = device && sessionId ? sessionFingerprint(sessionId, device.deviceId, peerDevice?.deviceId) : "pending peer";
   const canJoin = relayStatus !== "connecting" && roomCode.trim().length >= 8;
@@ -171,6 +173,7 @@ export function App() {
 
       setHostGrant(grant);
       setIncomingControlRequest(false);
+      await armLocalAgent(grant);
       client.sendSignal("control.grant", roomCode, grant, dev.deviceId);
       addAudit(`Pointer control granted to ${peerDevice.displayName} for 5 minutes.`);
     });
@@ -189,6 +192,7 @@ export function App() {
     setHostGrant(null);
     setViewerGrant(null);
     setIncomingControlRequest(false);
+    void revokeLocalAgent();
     addAudit("Remote control revoked.");
   }
 
@@ -211,6 +215,7 @@ export function App() {
     setHostGrant(null);
     setViewerGrant(null);
     setIncomingControlRequest(false);
+    void revokeLocalAgent();
     addAudit("Session ended locally.");
   }
 
@@ -367,6 +372,7 @@ export function App() {
           label: peerDevice?.displayName ?? "peer",
         });
         setLastControlIntent(intent.kind === "pointer.click" ? "Encrypted remote click received." : "Encrypted remote pointer move received.");
+        await sendIntentToLocalAgent(intent);
       }
 
       if (intent.kind === "keyboard.intent") {
@@ -437,6 +443,7 @@ export function App() {
       setControlGrant(grant);
       setControlRequested(false);
       setAgentCommandCopied(false);
+      await armLocalAgent({ grantId: grant.grantId, expiresAt: grant.expiresAt, roomCode: grant.roomCode, scopes: grant.scopes });
 
       if (device && signalingRef.current) {
         signalingRef.current.sendSignal(
@@ -468,6 +475,69 @@ export function App() {
     addAudit("Requested native QEV host-agent launch.");
   }
 
+
+  async function checkLocalAgent(): Promise<void> {
+    try {
+      const res = await fetch(`${LOCAL_AGENT_URL}/health`);
+      const json = await res.json() as { ok?: boolean; grantActive?: boolean };
+      setLocalAgentStatus(json.ok ? `online${json.grantActive ? " / armed" : ""}` : "offline");
+      addAudit("Local host agent check completed.");
+    } catch {
+      setLocalAgentStatus("offline");
+      addAudit("Local host agent is not running on this computer.");
+    }
+  }
+
+  async function armLocalAgent(grant: { grantId: string; expiresAt: string; roomCode?: string; scopes?: string[] }): Promise<void> {
+    try {
+      const res = await fetch(`${LOCAL_AGENT_URL}/grant`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          grantId: grant.grantId,
+          expiresAt: grant.expiresAt,
+          roomCode,
+          scopes: grant.scopes ?? ["pointer"],
+        }),
+      });
+
+      if (!res.ok) throw new Error("agent_rejected_grant");
+      setLocalAgentStatus("online / armed");
+      addAudit("Local host agent armed with current grant.");
+    } catch {
+      setLocalAgentStatus("offline");
+      addAudit("Grant created, but local host agent is not running on this computer.");
+    }
+  }
+
+  async function sendIntentToLocalAgent(intent: ControlIntentPlaintext): Promise<void> {
+    if (intent.kind === "keyboard.intent") return;
+
+    try {
+      const res = await fetch(`${LOCAL_AGENT_URL}/intent`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(intent),
+      });
+
+      if (!res.ok) throw new Error("agent_rejected_intent");
+      setLocalAgentStatus("online / executing");
+      addAudit(`Local host agent executed ${intent.kind}.`);
+    } catch {
+      setLocalAgentStatus("offline");
+      addAudit("Local host agent did not execute the control intent.");
+    }
+  }
+
+  async function revokeLocalAgent(): Promise<void> {
+    try {
+      await fetch(`${LOCAL_AGENT_URL}/revoke`, { method: "POST" });
+      setLocalAgentStatus("online / revoked");
+    } catch {
+      setLocalAgentStatus("offline");
+    }
+  }
+
   async function safe(action: () => Promise<void>): Promise<void> {
     setError("");
     try {
@@ -487,6 +557,7 @@ export function App() {
     setHostGrant(null);
     setViewerGrant(null);
     setIncomingControlRequest(false);
+    void revokeLocalAgent();
     setLastControlIntent("");
   }
 
@@ -578,12 +649,16 @@ export function App() {
             <button className="danger" disabled={!hasActiveHostGrant && !hasActiveViewerGrant} onClick={revokeControl}>
               Revoke control
             </button>
+            <button className="secondary" onClick={() => void checkLocalAgent()}>
+              Check local agent
+            </button>
           </div>
           <div className="control-grid">
             <p className="kv"><span>Incoming request</span><strong>{incomingControlRequest ? "waiting for host approval" : "none"}</strong></p>
             <p className="kv"><span>Viewer grant</span><strong>{hasActiveViewerGrant ? `active until ${new Date(viewerGrant!.expiresAt).toLocaleTimeString()}` : "none"}</strong></p>
             <p className="kv"><span>Host grant</span><strong>{hasActiveHostGrant ? `active until ${new Date(hostGrant!.expiresAt).toLocaleTimeString()}` : "none"}</strong></p>
             <p className="kv"><span>Last intent</span><strong>{lastControlIntent || "none"}</strong></p>
+            <p className="kv"><span>Local agent</span><strong>{localAgentStatus}</strong></p>
           </div>
         </div>
 
