@@ -10,7 +10,9 @@
     "build:web": "pnpm run build:packages && pnpm --filter @qev-workspace/web build",
     "build:relay": "pnpm --filter @qev-workspace/protocol build && pnpm --filter @qev-workspace/relay build",
     "typecheck": "pnpm -r typecheck",
-    "lint": "pnpm -r lint"
+    "lint": "pnpm -r lint",
+    "build:host-agent": "pnpm --filter @qev-workspace/protocol build && pnpm --filter @qev-workspace/host-agent build",
+    "dev:host-agent": "pnpm --filter @qev-workspace/host-agent dev"
   },
   "packageManager": "pnpm@9.15.0",
   "devDependencies": {
