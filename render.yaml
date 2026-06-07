@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: qev-workspace-relay
+    runtime: node
+    plan: free
+    branch: main
+    rootDir: .
+    buildCommand: corepack enable && corepack prepare pnpm@9.15.0 --activate && pnpm install --frozen-lockfile=false && pnpm --filter @qev-workspace/protocol build && pnpm --filter @qev-workspace/relay build
+    startCommand: pnpm --filter @qev-workspace/relay start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: ROOM_TTL_MS
+        value: 300000
+      - key: ALLOWED_ORIGINS
+        value: http://localhost:5173,https://theartofsound.github.io
