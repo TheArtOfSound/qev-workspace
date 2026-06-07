@@ -176,6 +176,10 @@ function handleMessage(socket: WebSocketLike, message: ProtocolEnvelope): void {
     case "signal.answer":
     case "signal.ice":
     case "pointer.move":
+    case "control.request":
+    case "control.grant":
+    case "control.revoke":
+    case "control.intent":
     case "permission.request":
     case "permission.grant":
     case "permission.revoke":
@@ -266,7 +270,7 @@ function asDevice(value: unknown): DeviceIdentityPublic | undefined {
   const record = value as Record<string, unknown>;
   if (typeof record.deviceId !== "string") return undefined;
   if (typeof record.displayName !== "string") return undefined;
-  if (typeof record.publicKey !== "string") return undefined;
+  if (!record.publicKeyJwk || typeof record.publicKeyJwk !== "object") return undefined;
   if (typeof record.createdAt !== "string") return undefined;
   return record as DeviceIdentityPublic;
 }
