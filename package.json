@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "pnpm -r --parallel dev",
-    "build": "pnpm -r build",
+    "build": "pnpm run build:packages && pnpm --filter @qev-workspace/relay build && pnpm --filter @qev-workspace/web build",
+    "build:packages": "pnpm --filter @qev-workspace/protocol build && pnpm --filter @qev-workspace/crypto build",
+    "build:web": "pnpm run build:packages && pnpm --filter @qev-workspace/web build",
+    "build:relay": "pnpm --filter @qev-workspace/protocol build && pnpm --filter @qev-workspace/relay build",
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint"
   },
