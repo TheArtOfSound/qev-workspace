@@ -8,6 +8,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      VITE_RELAY_URL: "wss://qev-workspace.onrender.com/ws"
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -18,4 +20,6 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile=false
-      - run: pnpm build
+      - run: pnpm --filter @qev-workspace/protocol build
+      - run: pnpm --filter @qev-workspace/crypto build
+      - run: pnpm --filter @qev-workspace/web build
