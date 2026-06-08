@@ -48,6 +48,20 @@ type TrustedPeerRecord = {
   lastSeenAt: string;
 };
 
+type QevEncryptedExportFile = {
+  version: "qev-encrypted-transcript-v1";
+  alg: "PBKDF2-SHA256-AES-GCM";
+  kdf: {
+    name: "PBKDF2";
+    hash: "SHA-256";
+    iterations: number;
+    salt: string;
+  };
+  iv: string;
+  ciphertext: string;
+  exportedAt: string;
+};
+
 export function App() {
   const vault = useMemo(() => new BrowserQevVaultAdapter(), []);
   const signalingRef = useRef<SignalingClient | null>(null);
@@ -91,6 +105,8 @@ export function App() {
   const [safetyVerifiedAt, setSafetyVerifiedAt] = useState("");
   const [localMediaVisible, setLocalMediaVisible] = useState(false);
   const [localMediaStatus, setLocalMediaStatus] = useState("idle");
+  const [exportPassphrase, setExportPassphrase] = useState("");
+  const [lastExportStatus, setLastExportStatus] = useState("not exported");
   const [peerKeyFingerprint, setPeerKeyFingerprint] = useState("pending");
   const [peerTrustStatus, setPeerTrustStatus] = useState("pending peer");
 
@@ -238,6 +254,59 @@ export function App() {
     saveTrustedPeerRecords(records);
     setPeerTrustStatus("forgotten / not remembered");
     addAudit(`Trusted peer forgotten locally: ${peerDevice.displayName}.`);
+  }
+
+  async function exportEncryptedTranscript(): Promise<void> {
+    await safe(async () => {
+      const passphrase = exportPassphrase.trim() || roomPassphrase.trim();
+
+      if (!passphrase) {
+        throw new Error("Enter an export passphrase before exporting.");
+      }
+
+      const transcript = {
+        version: "qev-local-transcript-v1",
+        exportedAt: new Date().toISOString(),
+        roomCode: roomCode || null,
+        sessionId: sessionId || null,
+        localDeviceId: device?.deviceId ?? null,
+        localDisplayName: displayName,
+        peerDevice: peerDevice
+          ? {
+              deviceId: peerDevice.deviceId,
+              displayName: peerDevice.displayName,
+              publicKeyFingerprint: peerKeyFingerprint,
+              trustStatus: peerTrustStatus,
+            }
+          : null,
+        privacyState: {
+          qevKey: sessionKey ? "established" : "pending",
+          safetyNumber: fingerprint,
+          safetyVerified,
+          safetyVerifiedAt: safetyVerifiedAt || null,
+          roomLockFingerprint,
+        },
+        chatMessages,
+        audit,
+      };
+
+      const encrypted = await encryptTranscriptExport(passphrase, transcript);
+      const safeRoom = (roomCode || "local").replace(/[^A-Z0-9-]/gi, "_");
+      downloadJson(`qev-transcript-${safeRoom}-${Date.now()}.json`, encrypted);
+
+      setLastExportStatus(`encrypted export downloaded at ${new Date().toLocaleTimeString()}`);
+      addAudit("Encrypted local transcript export downloaded.");
+    });
+  }
+
+  function clearLocalSessionData(): void {
+    setChatInput("");
+    setChatMessages([]);
+    setLastPrivateData("none");
+    setLastControlIntent("");
+    setError("");
+    setLastExportStatus("local session data cleared");
+    setAudit([`${new Date().toLocaleTimeString()} — Local chat/audit/session data cleared from this browser view.`]);
   }
 
   async function connect(): Promise<SignalingClient> {
@@ -980,6 +1049,31 @@ export function App() {
             Compare this safety number with the other person before using private chat, screen share, video, or control.
             Trust pinning remembers the peer key locally and warns if that key changes later.
           </p>
+
+          <div className="privacy-box">
+            <h3>Local privacy controls</h3>
+            <p>
+              Export is encrypted in this browser before download. QEV does not create a plaintext transcript file.
+            </p>
+            <label>
+              Export passphrase
+              <input
+                value={exportPassphrase}
+                onChange={(event) => setExportPassphrase(event.target.value)}
+                placeholder="Required for encrypted transcript export"
+                type="password"
+              />
+            </label>
+            <div className="button-row">
+              <button className="secondary" disabled={!exportPassphrase.trim() && !roomPassphrase.trim()} onClick={() => void exportEncryptedTranscript()}>
+                Export encrypted transcript
+              </button>
+              <button className="danger" onClick={clearLocalSessionData}>
+                Clear local session data
+              </button>
+            </div>
+            <p className="kv"><span>Export</span><strong>{lastExportStatus}</strong></p>
+          </div>
           <div className={sessionStatus === "sharing" || sessionStatus === "viewing" ? "indicator live" : "indicator"}>
             {sessionStatus === "sharing" ? "You are sharing your screen" : sessionStatus === "viewing" ? "You are viewing a shared screen" : "No active screen session"}
           </div>
@@ -1107,6 +1201,88 @@ export function App() {
       </section>
     </main>
   );
+}
+
+async function encryptTranscriptExport(passphrase: string, value: unknown): Promise<QevEncryptedExportFile> {
+  const iterations = 210_000;
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(passphrase),
+    "PBKDF2",
+    false,
+    ["deriveKey"],
+  );
+
+  const key = await crypto.subtle.deriveKey(
+    {
+      name: "PBKDF2",
+      salt: asStrictBufferSource(salt),
+      iterations,
+      hash: "SHA-256",
+    },
+    keyMaterial,
+    {
+      name: "AES-GCM",
+      length: 256,
+    },
+    false,
+    ["encrypt"],
+  );
+
+  const plaintext = new TextEncoder().encode(JSON.stringify(value, null, 2));
+  const ciphertext = await crypto.subtle.encrypt(
+    {
+      name: "AES-GCM",
+      iv: asStrictBufferSource(iv),
+    },
+    key,
+    asStrictBufferSource(plaintext),
+  );
+
+  return {
+    version: "qev-encrypted-transcript-v1",
+    alg: "PBKDF2-SHA256-AES-GCM",
+    kdf: {
+      name: "PBKDF2",
+      hash: "SHA-256",
+      iterations,
+      salt: bytesToBase64(salt),
+    },
+    iv: bytesToBase64(iv),
+    ciphertext: bytesToBase64(new Uint8Array(ciphertext)),
+    exportedAt: new Date().toISOString(),
+  };
+}
+
+function downloadJson(filename: string, value: unknown): void {
+  const blob = new Blob([JSON.stringify(value, null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.rel = "noopener";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function asStrictBufferSource(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return copy;
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
 }
 
 function loadTrustedPeerRecords(): Record<string, TrustedPeerRecord> {
