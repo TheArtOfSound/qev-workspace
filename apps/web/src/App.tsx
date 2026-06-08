@@ -69,6 +69,8 @@ export function App() {
   const peerRef = useRef<QevPeer | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
+  const sessionKeyRef = useRef<CryptoKey | null>(null);
+  const frameMediaEncryptionEnabledRef = useRef(false);
 
   const [relayUrl, setRelayUrl] = useState(DEFAULT_RELAY_URL);
   const [displayName, setDisplayName] = useState("QEV User");
@@ -122,6 +124,7 @@ export function App() {
   const hasActiveViewerGrant = Boolean(viewerGrant && new Date(viewerGrant.expiresAt).getTime() > Date.now());
   const hasActiveHostGrant = Boolean(hostGrant && new Date(hostGrant.expiresAt).getTime() > Date.now());
   const canUsePrivateLayer = Boolean(sessionKey && peerDevice && safetyVerified);
+  const canEnableQevMediaFrames = Boolean(frameMediaEncryptionEnabled && canUsePrivateLayer && mediaPrivacy.status === "ready");
   const safetyStatus = !peerDevice
     ? "pending peer"
     : !sessionKey
@@ -162,11 +165,13 @@ export function App() {
 
   async function establishSessionKey(local: DeviceIdentity, peer: DeviceIdentityPublic | null | undefined): Promise<void> {
     if (!peer) {
+      sessionKeyRef.current = null;
       setSessionKey(null);
       resetSafetyVerification();
       return;
     }
     const key = await derivePeerSessionKey(local, peer);
+    sessionKeyRef.current = key;
     setSessionKey(key);
     resetSafetyVerification();
     addAudit("QEV session encryption key established with peer.");
@@ -317,6 +322,13 @@ export function App() {
     addAudit(`Media privacy capability checked: ${next.label}.`);
   }
 
+  function setFrameMediaEncryptionRequirement(enabled: boolean): void {
+    frameMediaEncryptionEnabledRef.current = enabled;
+    setFrameMediaEncryptionEnabled(enabled);
+    setFrameCryptoStatus(enabled ? "required for new media sessions" : "disabled for new media sessions");
+    addAudit(enabled ? "QEV frame-level media encryption required for new media sessions." : "QEV frame-level media encryption disabled for new media sessions.");
+  }
+
   async function connect(): Promise<SignalingClient> {
     const dev = await ensureDevice();
     const client = new SignalingClient(relayUrl.trim());
@@ -355,11 +367,11 @@ export function App() {
       if (!client || !roomCode) throw new Error("Create or join a room first.");
       if (!canUsePrivateLayer) throw new Error("Compare and verify the QEV safety number before starting screen share.");
 
-      const peer = createPeer(client, dev.deviceId, roomCode);
+      const peer = createPeer(client, dev.deviceId, roomCode, canEnableQevMediaFrames)
       peerRef.current = peer;
 
       const offer = await peer.startScreenShare();
-      client.sendSignal("signal.offer", roomCode, { description: offer, mode: "screen" }, dev.deviceId);
+      client.sendSignal("signal.offer", roomCode, { description: offer, mode: "screen", frameCrypto: canEnableQevMediaFrames }, dev.deviceId);
       setSessionStatus("sharing");
       addAudit("Screen-share offer sent. Browser permission was required.");
     });
@@ -372,11 +384,11 @@ export function App() {
       if (!client || !roomCode) throw new Error("Create or join a room first.");
       if (!canUsePrivateLayer) throw new Error("Compare and verify the QEV safety number before starting video call.");
 
-      const peer = createPeer(client, dev.deviceId, roomCode);
+      const peer = createPeer(client, dev.deviceId, roomCode, canEnableQevMediaFrames)
       peerRef.current = peer;
 
       const offer = await peer.startCameraCall({ video: true, audio: true });
-      client.sendSignal("signal.offer", roomCode, { description: offer, mode: "camera" }, dev.deviceId);
+      client.sendSignal("signal.offer", roomCode, { description: offer, mode: "camera", frameCrypto: canEnableQevMediaFrames }, dev.deviceId);
       setSessionStatus("sharing");
       setLocalMediaStatus("camera + mic active");
       addAudit("Private video-call offer sent. Browser camera/mic permission was required.");
@@ -508,6 +520,7 @@ export function App() {
       setSessionStatus("created");
       writeRoomToUrl(payload.roomCode);
       setInviteCopied(false);
+    setFrameCryptoStatus("not attached");
       addAudit(`Room created: ${payload.roomCode}. Expires: ${payload.expiresAt}`);
       return;
     }
@@ -545,11 +558,15 @@ export function App() {
     }
 
     if (message.type === "signal.offer") {
-      const payload = message.payload as { description: RTCSessionDescriptionInit; mode?: "screen" | "camera" };
+      const payload = message.payload as { description: RTCSessionDescriptionInit; mode?: "screen" | "camera"; frameCrypto?: boolean };
       const targetRoom = message.roomCode ?? roomCode;
       if (!targetRoom) throw new Error("Offer received without room code.");
 
-      const peer = createPeer(client, dev.deviceId, targetRoom);
+      if (payload.frameCrypto && (!frameMediaEncryptionEnabledRef.current || detectMediaPrivacyCapability().status !== "ready" || !sessionKeyRef.current)) {
+        throw new Error("Peer requires QEV frame-level media encryption. Enable it locally and verify the safety number first.");
+      }
+
+      const peer = createPeer(client, dev.deviceId, targetRoom, Boolean(payload.frameCrypto));
       peerRef.current = peer;
       const answer = await peer.acceptOffer(payload.description, payload.mode === "camera" ? { video: true, audio: true } : {});
       client.sendSignal("signal.answer", targetRoom, { description: answer }, dev.deviceId);
@@ -739,7 +756,7 @@ export function App() {
     }
   }
 
-  function createPeer(client: SignalingClient, deviceId: string, targetRoomCode: string): QevPeer {
+  function createPeer(client: SignalingClient, deviceId: string, targetRoomCode: string, useFrameCrypto = false): QevPeer {
     return new QevPeer({
       onLocalIce: (candidate) => client.sendSignal("signal.ice", targetRoomCode, { candidate }, deviceId),
       onRemoteStream: (stream) => {
@@ -755,6 +772,11 @@ export function App() {
       },
       onPointer: (payload) => setPointer(payload),
       onEncryptedData: (payload) => void receiveEncryptedPeerData(payload),
+      onFrameCryptoStatus: (status) => {
+        setFrameCryptoStatus(status.message);
+        addAudit(status.message);
+      },
+      frameEncryptionKey: useFrameCrypto ? sessionKeyRef.current : null,
       onAudit: addAudit,
     });
   }
@@ -915,6 +937,7 @@ export function App() {
 
   function clearPeerState(): void {
     setPeerDevice(null);
+    sessionKeyRef.current = null;
     setSessionKey(null);
     resetSafetyVerification();
     setRemoteVisible(false);

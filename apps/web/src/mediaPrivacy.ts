@@ -77,12 +77,12 @@ export function detectMediaPrivacyCapability(): MediaPrivacyCapability {
       insertableStreams,
       qevFrameEncryption: "available-not-enabled",
       status: "ready",
-      label: "QEV frame encryption capable / not enabled",
+      label: "QEV frame encryption capable",
       notes: [
         "WebRTC media transport encryption is available.",
         "Browser exposes encoded-frame transform hooks.",
-        "Next hardening step can bind QEV frame encryption to outgoing and incoming media.",
-        "QEV app data already remains separate from media and is encrypted at the app layer.",
+        "QEV frame-level media encryption can be enabled experimentally.",
+        "QEV app data remains separately encrypted at the app layer.",
       ],
     };
   }

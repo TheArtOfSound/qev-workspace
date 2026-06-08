@@ -1,4 +1,9 @@
 import type { EncryptedPayload, PointerPayload } from "@qev-workspace/protocol";
+import {
+  attachFrameDecryptionToReceiver,
+  attachFrameEncryptionToSender,
+  type FrameCryptoStatus,
+} from "./mediaFrameCrypto";
 
 export type QevPeerDataMessage =
   | {
@@ -16,7 +21,9 @@ export type PeerCallbacks = {
   onLocalStream?: (stream: MediaStream) => void;
   onPointer: (payload: PointerPayload) => void;
   onEncryptedData?: (payload: EncryptedPayload) => void;
+  onFrameCryptoStatus?: (status: FrameCryptoStatus) => void;
   onAudit: (message: string) => void;
+  frameEncryptionKey?: CryptoKey | null;
 };
 
 export type LocalMediaOptions = {
@@ -32,7 +39,8 @@ export class QevPeer {
   constructor(private readonly callbacks: PeerCallbacks) {
     this.pc = new RTCPeerConnection({
       iceServers: buildIceServers(),
-    });
+      encodedInsertableStreams: Boolean(callbacks.frameEncryptionKey),
+    } as RTCConfiguration);
 
     this.pc.onicecandidate = (event) => {
       if (event.candidate) callbacks.onLocalIce(event.candidate);
@@ -41,6 +49,15 @@ export class QevPeer {
     this.pc.ontrack = (event) => {
       const [stream] = event.streams;
       if (stream) callbacks.onRemoteStream(stream);
+
+      if (callbacks.frameEncryptionKey) {
+        attachFrameDecryptionToReceiver(
+          event.receiver,
+          callbacks.frameEncryptionKey,
+          event.track.kind,
+          callbacks.onFrameCryptoStatus,
+        );
+      }
     };
 
     this.pc.onconnectionstatechange = () => {
@@ -175,7 +192,17 @@ export class QevPeer {
     this.callbacks.onLocalStream?.(stream);
 
     for (const track of stream.getTracks()) {
-      this.pc.addTrack(track, stream);
+      const sender = this.pc.addTrack(track, stream);
+
+      if (this.callbacks.frameEncryptionKey) {
+        attachFrameEncryptionToSender(
+          sender,
+          this.callbacks.frameEncryptionKey,
+          track.kind,
+          this.callbacks.onFrameCryptoStatus,
+        );
+      }
+
       track.addEventListener("ended", () => this.callbacks.onAudit(endMessage));
     }
   }
