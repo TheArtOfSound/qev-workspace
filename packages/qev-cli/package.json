@@ -1,10 +1,10 @@
 {
   "name": "qev-workspace",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "CLI installer and launcher for QEV Workspace Host.",
   "type": "module",
   "bin": {
-    "qev-workspace": "./bin/qev-workspace.js"
+    "qev-workspace": "bin/qev-workspace.js"
   },
   "files": [
     "bin",
