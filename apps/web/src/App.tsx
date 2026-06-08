@@ -901,7 +901,7 @@ export function App() {
       </section>
 
       <section className="grid">
-        <div className="panel">
+        <div className="panel identity-panel">
           <h2>Identity</h2>
           <label>
             Display name
@@ -918,7 +918,7 @@ export function App() {
           <p className="mono">Device: {device ? device.deviceId : "not created"}</p>
         </div>
 
-        <div className="panel">
+        <div className="panel session-panel">
           <h2>Session</h2>
           <div className="button-row">
             <button onClick={() => void createSession()}>Create session</button>
@@ -952,7 +952,7 @@ export function App() {
           </div>
         </div>
 
-        <div className="panel">
+        <div className="panel consent-panel">
           <h2>Consent state</h2>
           <p className="kv"><span>Session</span><strong>{sessionStatus}</strong></p>
           <p className="kv"><span>Session ID</span><strong>{sessionId || "not created"}</strong></p>
@@ -985,7 +985,7 @@ export function App() {
           </div>
         </div>
 
-        <div className="panel wide control-panel">
+        <div className="panel wide control-panel control-permission-panel">
           <h2>Remote control permission</h2>
           <p>
             Browser MVP supports encrypted control intents. OS mouse/keyboard injection remains blocked until the
@@ -1014,7 +1014,7 @@ export function App() {
           </div>
         </div>
 
-        <div className="panel wide control-panel">
+        <div className="panel wide control-panel control-legacy-panel">
           <h2>Remote control</h2>
           <p>
             Browser screen sharing is live. Actual OS control requires the visible QEV host agent on the machine being controlled.
@@ -1074,7 +1074,7 @@ export function App() {
           </div>
         </div>
 
-        <div className="panel wide">
+        <div className="panel wide remote-stage">
           <h2>Remote screen</h2>
           <div className="video-wrap">
             <video
@@ -1096,7 +1096,7 @@ export function App() {
           </div>
         </div>
 
-        <div className="panel wide">
+        <div className="panel wide audit-panel">
           <h2>Audit</h2>
           <ul className="audit">
             {audit.map((entry, index) => (

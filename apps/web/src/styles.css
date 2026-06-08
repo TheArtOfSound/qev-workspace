@@ -610,3 +610,179 @@ pre {
 .trust-warning strong {
   text-transform: uppercase;
 }
+
+
+/* qev-landscape-workspace-shell-v1 */
+@media (min-width: 1180px) {
+  html,
+  body,
+  #root {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .shell {
+    width: 100vw;
+    max-width: none;
+    height: 100dvh;
+    padding: 14px;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 12px;
+    overflow: hidden;
+  }
+
+  .hero {
+    grid-template-columns: minmax(0, 1fr) 260px;
+    gap: 12px;
+    margin: 0;
+    min-height: 0;
+  }
+
+  .hero > div,
+  .status-card {
+    padding: 1rem;
+  }
+
+  h1 {
+    max-width: 980px;
+    font-size: clamp(2.2rem, 3.9vw, 4.7rem);
+    line-height: 0.9;
+  }
+
+  .lede {
+    max-width: 920px;
+    margin: 0.75rem 0;
+    line-height: 1.5;
+  }
+
+  .safety-line {
+    padding: 0.7rem;
+  }
+
+  .download-strip {
+    display: none;
+  }
+
+  .grid {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: 330px minmax(560px, 1fr) 390px;
+    grid-template-rows: minmax(0, 0.9fr) minmax(0, 1.08fr) 190px;
+    grid-template-areas:
+      "identity stage consent"
+      "session  stage chat"
+      "session  stage audit";
+    gap: 12px;
+    align-items: stretch;
+  }
+
+  .grid > .panel {
+    min-height: 0;
+    overflow: auto;
+    padding: 1rem;
+  }
+
+  .identity-panel {
+    grid-area: identity;
+  }
+
+  .session-panel {
+    grid-area: session;
+  }
+
+  .consent-panel {
+    grid-area: consent;
+  }
+
+  .remote-stage {
+    grid-area: stage;
+    overflow: hidden !important;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .remote-stage .video-wrap {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .remote-stage .remote {
+    height: 100%;
+    min-height: 0;
+    object-fit: contain;
+  }
+
+  .chat-panel {
+    grid-area: chat;
+  }
+
+  .audit-panel {
+    grid-area: audit;
+  }
+
+  .control-permission-panel,
+  .control-legacy-panel {
+    display: none;
+  }
+
+  .local-preview {
+    grid-area: stage;
+    align-self: end;
+    justify-self: end;
+    width: 300px;
+    max-width: 32%;
+    z-index: 4;
+    margin: 16px;
+    padding: 0.75rem !important;
+    background: var(--panel);
+  }
+
+  .local-preview h2 {
+    font-size: 0.76rem;
+  }
+
+  .local-preview p,
+  .local-preview .control-grid {
+    display: none;
+  }
+
+  .local-preview .video-wrap {
+    min-height: 170px;
+    height: 170px;
+  }
+
+  .local-wrap .remote {
+    min-height: 170px;
+    height: 170px;
+    object-fit: cover;
+  }
+
+  .chat-log {
+    min-height: 0;
+    max-height: none;
+  }
+
+  .audit {
+    max-height: none;
+  }
+
+  .button-row {
+    gap: 0.55rem;
+  }
+
+  button,
+  .download-button {
+    padding: 0.76rem 0.85rem;
+  }
+
+  input {
+    padding: 0.78rem 0.85rem;
+  }
+
+  .control-grid {
+    grid-template-columns: 1fr;
+  }
+}
