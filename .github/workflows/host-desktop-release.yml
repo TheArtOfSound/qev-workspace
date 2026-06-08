@@ -1,0 +1,59 @@
+name: Build QEV Host Desktop Installers
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "host-v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-host:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            args: "--bundles dmg"
+          - platform: windows-latest
+            args: "--bundles nsis"
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - run: pnpm install --frozen-lockfile=false
+
+      - uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: apps/host-desktop
+          tagName: host-v__VERSION__
+          releaseName: "QEV Host v__VERSION__"
+          releaseBody: |
+            Download QEV Host on the computer you want to control.
+
+            Preview build notes:
+            - Mac users download the DMG.
+            - Windows users download the setup EXE.
+            - This preview build is not code-signed yet, so macOS/Windows may show a security warning.
+            - A signed/notarized installer is required before this feels fully consumer-grade.
+          releaseDraft: false
+          prerelease: true
+          args: ${{ matrix.args }}
+          releaseAssetNamePattern: "qev-host-[platform]-[arch][setup].[ext]"

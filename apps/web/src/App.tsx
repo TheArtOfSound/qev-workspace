@@ -587,6 +587,24 @@ export function App() {
 
       {error ? <div className="error">{error}</div> : null}
 
+
+      <section className="download-strip">
+        <div>
+          <p className="eyebrow">Native Host Required</p>
+          <h2>Download QEV Host for the computer you want to control.</h2>
+          <p>
+            The web app is for sessions and viewing. The controlled computer needs the QEV Host desktop app installed once
+            so it can run at login, capture the screen, and execute approved control safely.
+          </p>
+        </div>
+        <div className="download-actions">
+          <a className="download-button" href="https://github.com/TheArtOfSound/qev-workspace/releases/latest" target="_blank" rel="noreferrer">
+            Download QEV Host
+          </a>
+          <small>Mac DMG and Windows setup builds appear here after the release workflow finishes.</small>
+        </div>
+      </section>
+
       <section className="grid">
         <div className="panel">
           <h2>Identity</h2>
