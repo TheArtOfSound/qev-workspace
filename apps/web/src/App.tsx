@@ -18,6 +18,7 @@ import {
 } from "@qev-workspace/protocol";
 import { SignalingClient, type SignalingStatus } from "./signaling";
 import { QevPeer } from "./webrtc";
+import { detectMediaPrivacyCapability, type MediaPrivacyCapability } from "./mediaPrivacy";
 import { buildAgentCommand, buildAgentLaunchUrl, createPointerGrant, isGrantActive, type ControlGrant } from "./control";
 
 const DEFAULT_RELAY_URL = import.meta.env.VITE_RELAY_URL ?? "wss://qev-workspace.onrender.com/ws";
@@ -109,6 +110,7 @@ export function App() {
   const [lastExportStatus, setLastExportStatus] = useState("not exported");
   const [peerKeyFingerprint, setPeerKeyFingerprint] = useState("pending");
   const [peerTrustStatus, setPeerTrustStatus] = useState("pending peer");
+  const [mediaPrivacy, setMediaPrivacy] = useState<MediaPrivacyCapability>(() => detectMediaPrivacyCapability());
 
   const fingerprint = device && sessionId ? sessionFingerprint(sessionId, device.deviceId, peerDevice?.deviceId) : "pending peer";
   const canJoin = relayStatus !== "connecting" && roomCode.trim().length >= 8;
@@ -307,6 +309,12 @@ export function App() {
     setError("");
     setLastExportStatus("local session data cleared");
     setAudit([`${new Date().toLocaleTimeString()} — Local chat/audit/session data cleared from this browser view.`]);
+  }
+
+  function refreshMediaPrivacy(): void {
+    const next = detectMediaPrivacyCapability();
+    setMediaPrivacy(next);
+    addAudit(`Media privacy capability checked: ${next.label}.`);
   }
 
   async function connect(): Promise<SignalingClient> {
@@ -1074,6 +1082,32 @@ export function App() {
             </div>
             <p className="kv"><span>Export</span><strong>{lastExportStatus}</strong></p>
           </div>
+
+          <div className={`privacy-box media-privacy-box media-${mediaPrivacy.status}`}>
+            <h3>Media privacy hardening</h3>
+            <p>
+              Video and screen-share media currently use WebRTC transport encryption. QEV frame-level media encryption
+              requires browser encoded-frame transform support.
+            </p>
+            <div className="control-grid">
+              <p className="kv"><span>Media status</span><strong>{mediaPrivacy.label}</strong></p>
+              <p className="kv"><span>Secure context</span><strong>{mediaPrivacy.secureContext ? "yes" : "no"}</strong></p>
+              <p className="kv"><span>WebRTC</span><strong>{mediaPrivacy.webRtc ? "available" : "blocked"}</strong></p>
+              <p className="kv"><span>Camera/screen APIs</span><strong>{mediaPrivacy.mediaDevices ? "available" : "blocked"}</strong></p>
+              <p className="kv"><span>Encoded transform</span><strong>{mediaPrivacy.insertableStreams ? "available" : "not available"}</strong></p>
+              <p className="kv"><span>QEV frame encryption</span><strong>{mediaPrivacy.qevFrameEncryption}</strong></p>
+            </div>
+            <ul className="media-notes">
+              {mediaPrivacy.notes.map((note) => (
+                <li key={note}>{note}</li>
+              ))}
+            </ul>
+            <div className="button-row">
+              <button className="secondary" onClick={refreshMediaPrivacy}>
+                Refresh media privacy check
+              </button>
+            </div>
+          </div>
           <div className={sessionStatus === "sharing" || sessionStatus === "viewing" ? "indicator live" : "indicator"}>
             {sessionStatus === "sharing" ? "You are sharing your screen" : sessionStatus === "viewing" ? "You are viewing a shared screen" : "No active screen session"}
           </div>
@@ -1154,7 +1188,7 @@ export function App() {
           </p>
           <div className="control-grid">
             <p className="kv"><span>Local media</span><strong>{localMediaStatus}</strong></p>
-            <p className="kv"><span>Privacy layer</span><strong>WebRTC media + QEV encrypted app data</strong></p>
+            <p className="kv"><span>Privacy layer</span><strong>{mediaPrivacy.label}</strong></p>
           </div>
           <div className="video-wrap local-wrap">
             <video

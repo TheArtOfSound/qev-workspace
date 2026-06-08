@@ -809,3 +809,27 @@ pre {
   font-size: 0.84rem;
   line-height: 1.6;
 }
+
+
+.media-privacy-box {
+  margin-top: 0.85rem;
+}
+
+.media-privacy-box.media-ready {
+  border-color: var(--line-strong);
+}
+
+.media-privacy-box.media-transport-only,
+.media-privacy-box.media-blocked {
+  border-style: dashed;
+}
+
+.media-notes {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--muted);
+  display: grid;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
