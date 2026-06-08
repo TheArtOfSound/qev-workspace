@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "identifier": "app.qev.workspace.host",
   "build": {
-    "beforeDevCommand": "pnpm dev",
+    "beforeDevCommand": "pnpm dev:frontend",
     "devUrl": "http://localhost:1420",
     "beforeBuildCommand": "pnpm build:frontend",
     "frontendDist": "../dist"
