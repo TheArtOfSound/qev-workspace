@@ -36,6 +36,18 @@ type PrivateChatPayload = {
   roomLockHash?: string | null;
 };
 
+type PrivateProofPayload = {
+  kind: "qev.private-proof.v1";
+  proofId: string;
+  mode: "ping" | "pong";
+  senderDeviceId: string;
+  senderName: string;
+  roomCode: string;
+  sessionId: string;
+  roomLockHash?: string | null;
+  sentAt: string;
+};
+
 type ChatEntry = PrivateChatPayload & {
   direction: "me" | "peer" | "system";
   encrypted: boolean;
@@ -104,6 +116,8 @@ export function App() {
   const [chatInput, setChatInput] = useState("");
   const [chatMessages, setChatMessages] = useState<ChatEntry[]>([]);
   const [lastPrivateData, setLastPrivateData] = useState("none");
+  const [privateChannelStatus, setPrivateChannelStatus] = useState("not tested");
+  const [lastPrivateProofId, setLastPrivateProofId] = useState("");
   const [safetyVerified, setSafetyVerified] = useState(false);
   const [safetyVerifiedAt, setSafetyVerifiedAt] = useState("");
   const [localMediaVisible, setLocalMediaVisible] = useState(false);
@@ -310,6 +324,8 @@ export function App() {
     setChatInput("");
     setChatMessages([]);
     setLastPrivateData("none");
+    setPrivateChannelStatus("local session data cleared");
+    setLastPrivateProofId("");
     setLastControlIntent("");
     setError("");
     setLastExportStatus("local session data cleared");
@@ -653,12 +669,38 @@ export function App() {
     }
 
     try {
-      const message = await decryptJson<PrivateChatPayload>(sessionKey, payload);
+      const message = await decryptJson<PrivateChatPayload | PrivateProofPayload>(sessionKey, payload);
       const localRoomLockHash = await computeRoomLockHash(roomCode, roomPassphrase);
 
       if ((message.roomLockHash ?? null) !== (localRoomLockHash ?? null)) {
-        addAudit("Rejected encrypted chat: room passphrase mismatch.");
+        addAudit("Rejected encrypted peer data: room passphrase mismatch.");
+        setPrivateChannelStatus("failed / room-lock mismatch");
         return;
+      }
+
+      if (message.kind === "qev.private-proof.v1") {
+        if (message.roomCode !== roomCode || message.sessionId !== sessionId) {
+          setPrivateChannelStatus("failed / session mismatch");
+          addAudit("Rejected private-channel proof: session mismatch.");
+          return;
+        }
+
+        if (message.mode === "ping") {
+          await respondToPrivateProof(message);
+          return;
+        }
+
+        if (message.mode === "pong") {
+          if (lastPrivateProofId && message.proofId === lastPrivateProofId) {
+            setPrivateChannelStatus(`verified with ${message.senderName} at ${new Date(message.sentAt).toLocaleTimeString()}`);
+            setLastPrivateData(`Private-channel proof verified at ${new Date(message.sentAt).toLocaleTimeString()}.`);
+            addAudit("QEV encrypted private-channel proof verified.");
+          } else {
+            setPrivateChannelStatus("received unmatched proof response");
+            addAudit("Received QEV private-channel proof response with unmatched proof ID.");
+          }
+          return;
+        }
       }
 
       if (message.kind === "qev.chat.v1") {
@@ -717,6 +759,60 @@ export function App() {
       setLastPrivateData(`Encrypted chat sent at ${new Date(message.sentAt).toLocaleTimeString()}.`);
       addAudit("QEV encrypted chat message sent over peer data channel.");
     });
+  }
+
+  async function verifyPrivateChannel(): Promise<void> {
+    await safe(async () => {
+      if (!sessionKey) throw new Error("QEV session key is not established yet.");
+      if (!safetyVerified) throw new Error("Verify the QEV safety number before testing the private channel.");
+      if (!peerRef.current) throw new Error("Peer data channel is not ready. Start video or screen share first.");
+      if (!device) throw new Error("Local device identity is missing.");
+      if (!roomCode || !sessionId) throw new Error("No active room/session.");
+
+      const proofId = createId("proof");
+      const roomLockHash = await computeRoomLockHash(roomCode, roomPassphrase);
+      const proof: PrivateProofPayload = {
+        kind: "qev.private-proof.v1",
+        proofId,
+        mode: "ping",
+        senderDeviceId: device.deviceId,
+        senderName: displayName.trim() || "QEV User",
+        roomCode,
+        sessionId,
+        roomLockHash,
+        sentAt: new Date().toISOString(),
+      };
+
+      const encrypted = await encryptJson(sessionKey, proof);
+      peerRef.current.sendEncrypted(encrypted);
+
+      setLastPrivateProofId(proofId);
+      setPrivateChannelStatus("encrypted proof sent / waiting for peer");
+      setLastPrivateData(`Private-channel proof sent at ${new Date(proof.sentAt).toLocaleTimeString()}.`);
+      addAudit("QEV encrypted private-channel proof sent.");
+    });
+  }
+
+  async function respondToPrivateProof(proof: PrivateProofPayload): Promise<void> {
+    if (!sessionKey || !peerRef.current || !device) return;
+
+    const roomLockHash = await computeRoomLockHash(roomCode, roomPassphrase);
+    const response: PrivateProofPayload = {
+      kind: "qev.private-proof.v1",
+      proofId: proof.proofId,
+      mode: "pong",
+      senderDeviceId: device.deviceId,
+      senderName: displayName.trim() || "QEV User",
+      roomCode,
+      sessionId,
+      roomLockHash,
+      sentAt: new Date().toISOString(),
+    };
+
+    const encrypted = await encryptJson(sessionKey, response);
+    peerRef.current.sendEncrypted(encrypted);
+    setPrivateChannelStatus("received proof / encrypted response sent");
+    addAudit("QEV private-channel proof received and answered.");
   }
 
   async function receiveEncryptedControlIntent(payload: EncryptedPayload): Promise<void> {
@@ -953,6 +1049,8 @@ export function App() {
     setChatInput("");
     setChatMessages([]);
     setLastPrivateData("none");
+    setPrivateChannelStatus("not tested");
+    setLastPrivateProofId("");
     setInviteCopied(false);
   }
 
@@ -1061,6 +1159,7 @@ export function App() {
           <p className="kv"><span>Peer key</span><strong>{peerKeyFingerprint}</strong></p>
           <p className="kv"><span>Safety number</span><strong>{fingerprint}</strong></p>
           <p className="kv"><span>QEV key</span><strong>{sessionKey ? "established" : "pending"}</strong></p>
+          <p className="kv"><span>Private channel</span><strong>{privateChannelStatus}</strong></p>
           <p className="kv"><span>Safety verification</span><strong>{safetyStatus}</strong></p>
           <div className="button-row safety-actions">
             <button disabled={!sessionKey || !peerDevice || safetyVerified} onClick={verifySafetyNumber}>
@@ -1074,6 +1173,9 @@ export function App() {
             </button>
             <button className="secondary" disabled={!peerDevice} onClick={forgetTrustedPeer}>
               Forget peer
+            </button>
+            <button className="secondary" disabled={!canUsePrivateLayer || !remoteVisible} onClick={() => void verifyPrivateChannel()}>
+              Verify private channel
             </button>
           </div>
           <p className="safety-note">
