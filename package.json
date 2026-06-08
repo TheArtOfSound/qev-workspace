@@ -20,7 +20,8 @@
     "smoke:ui": "node scripts/qev-ui-smoke.mjs",
     "smoke:live": "node scripts/qev-live-relay-smoke.mjs",
     "verify:qev": "pnpm run build:packages && pnpm --filter @qev-workspace/web typecheck && pnpm run build:web && pnpm run smoke:offline && pnpm run smoke:ui",
-    "verify:qev:live": "pnpm run verify:qev && pnpm run smoke:live"
+    "verify:qev:live": "pnpm run verify:qev && pnpm run build:relay && pnpm run smoke:relay && pnpm run smoke:live",
+    "smoke:relay": "node scripts/qev-relay-ttl-smoke.mjs"
   },
   "packageManager": "pnpm@9.15.0",
   "devDependencies": {

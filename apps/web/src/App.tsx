@@ -1489,7 +1489,7 @@ export function App() {
           <div className="control-grid">
             <p className="kv"><span>Invite</span><strong>{inviteCopied ? "copied" : roomCode ? "ready" : "pending room"}</strong></p>
             <p className="kv"><span>Lifecycle</span><strong>{roomLifecycleStatus}</strong></p>
-            <p className="kv"><span>Expires</span><strong>{roomExpiresAt ? new Date(roomExpiresAt).toLocaleTimeString() : "unknown"}</strong></p>
+            <p className="kv"><span>Invite expires</span><strong>{roomExpiresAt ? new Date(roomExpiresAt).toLocaleTimeString() : "unknown"}</strong></p>
             <p className="kv"><span>Room lock</span><strong>{roomLockFingerprint}</strong></p>
           </div>
           <div className="button-row">

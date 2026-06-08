@@ -256,8 +256,16 @@ function closeRoom(roomCode: string, reason: string): void {
 
 function cleanupExpiredRooms(): void {
   const now = Date.now();
+
   for (const [code, room] of rooms) {
-    if (room.expiresAt < now) closeRoom(code, "room_expired");
+    if (room.expiresAt >= now) continue;
+
+    // Expiry is an invite/join window, not an active-session kill switch.
+    // Once two peers are connected, they may stay in the room until they disconnect,
+    // end the session, burn the room locally, or the relay process restarts.
+    if (room.peers.size >= 2) continue;
+
+    closeRoom(code, "room_expired");
   }
 }
 

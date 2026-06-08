@@ -1,0 +1,11 @@
+# QEV Relay TTL Smoke Report\n\nGenerated: 2026-06-08T19:21:10.191Z\n\nPASS: 2\nFAIL: 0\n\n## Results\n\n| Status | Check | Detail |\n|---|---|---|\n| PASS | relay: one-peer invite expires after TTL | ok |\n| PASS | relay: active two-peer room survives invite TTL | ok |\n\n## Meaning\n\nThis proves the invite/join window expires for unjoined rooms, while an active two-peer room survives past the invite TTL.\n\n## Relay Output\n\n```txt\n> @qev-workspace/relay@0.2.0 start /Users/bry/Downloads/qev-workspace/apps/relay
+> node dist/server.js
+
+{"level":30,"time":1780946467079,"pid":68404,"hostname":"BRYs-MacBook-Air.local","msg":"Server listening at http://127.0.0.1:8799"}
+{"level":30,"time":1780946467079,"pid":68404,"hostname":"BRYs-MacBook-Air.local","msg":"Server listening at http://192.168.0.110:8799"}
+{"level":30,"time":1780946467087,"pid":68404,"hostname":"BRYs-MacBook-Air.local","reqId":"req-1","req":{"method":"GET","url":"/health","host":"127.0.0.1:8799","remoteAddress":"127.0.0.1","remotePort":51447},"msg":"incoming request"}
+{"level":30,"time":1780946467095,"pid":68404,"hostname":"BRYs-MacBook-Air.local","reqId":"req-1","res":{"statusCode":200},"responseTime":8.344666004180908,"msg":"request completed"}
+{"level":30,"time":1780946467108,"pid":68404,"hostname":"BRYs-MacBook-Air.local","reqId":"req-2","req":{"method":"GET","url":"/ws","host":"127.0.0.1:8799","remoteAddress":"127.0.0.1","remotePort":51448},"msg":"incoming request"}
+{"level":30,"time":1780946467113,"pid":68404,"hostname":"BRYs-MacBook-Air.local","reqId":"req-3","req":{"method":"GET","url":"/ws","host":"127.0.0.1:8799","remoteAddress":"127.0.0.1","remotePort":51447},"msg":"incoming request"}
+{"level":30,"time":1780946468523,"pid":68404,"hostname":"BRYs-MacBook-Air.local","reqId":"req-4","req":{"method":"GET","url":"/ws","host":"127.0.0.1:8799","remoteAddress":"127.0.0.1","remotePort":51449},"msg":"incoming request"}
+{"level":30,"time":1780946468529,"pid":68404,"hostname":"BRYs-MacBook-Air.local","reqId":"req-5","req":{"method":"GET","url":"/ws","host":"127.0.0.1:8799","remoteAddress":"127.0.0.1","remotePort":51450},"msg":"incoming request"}\n```\n
