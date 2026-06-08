@@ -1,0 +1,37 @@
+{
+  "name": "qev-workspace",
+  "version": "0.1.0",
+  "description": "CLI installer and launcher for QEV Workspace Host.",
+  "type": "module",
+  "bin": {
+    "qev": "./bin/qev-workspace.js",
+    "qev-workspace": "./bin/qev-workspace.js"
+  },
+  "files": [
+    "bin",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "qev",
+    "workspace",
+    "remote-workspace",
+    "remote-support",
+    "tauri"
+  ],
+  "homepage": "https://theartofsound.github.io/qev-workspace/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TheArtOfSound/qev-workspace.git",
+    "directory": "packages/qev-cli"
+  },
+  "bugs": {
+    "url": "https://github.com/TheArtOfSound/qev-workspace/issues"
+  },
+  "license": "UNLICENSED",
+  "publishConfig": {
+    "access": "public"
+  }
+}
