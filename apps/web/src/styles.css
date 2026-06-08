@@ -589,3 +589,15 @@ pre {
   color: var(--muted);
   font-size: 0.82rem;
 }
+
+
+.safety-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.65;
+}
+
+.safety-actions {
+  align-items: center;
+}

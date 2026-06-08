@@ -78,6 +78,8 @@ export function App() {
   const [chatInput, setChatInput] = useState("");
   const [chatMessages, setChatMessages] = useState<ChatEntry[]>([]);
   const [lastPrivateData, setLastPrivateData] = useState("none");
+  const [safetyVerified, setSafetyVerified] = useState(false);
+  const [safetyVerifiedAt, setSafetyVerifiedAt] = useState("");
   const [localMediaVisible, setLocalMediaVisible] = useState(false);
   const [localMediaStatus, setLocalMediaStatus] = useState("idle");
 
@@ -90,6 +92,14 @@ export function App() {
   const agentLaunchUrl = controlGrant ? buildAgentLaunchUrl(controlGrant) : "";
   const hasActiveViewerGrant = Boolean(viewerGrant && new Date(viewerGrant.expiresAt).getTime() > Date.now());
   const hasActiveHostGrant = Boolean(hostGrant && new Date(hostGrant.expiresAt).getTime() > Date.now());
+  const canUsePrivateLayer = Boolean(sessionKey && peerDevice && safetyVerified);
+  const safetyStatus = !peerDevice
+    ? "pending peer"
+    : !sessionKey
+      ? "pending QEV key"
+      : safetyVerified
+        ? `verified${safetyVerifiedAt ? ` at ${new Date(safetyVerifiedAt).toLocaleTimeString()}` : ""}`
+        : "unverified";
 
   useEffect(() => {
     let cancelled = false;
@@ -120,11 +130,34 @@ export function App() {
   async function establishSessionKey(local: DeviceIdentity, peer: DeviceIdentityPublic | null | undefined): Promise<void> {
     if (!peer) {
       setSessionKey(null);
+      resetSafetyVerification();
       return;
     }
     const key = await derivePeerSessionKey(local, peer);
     setSessionKey(key);
+    resetSafetyVerification();
     addAudit("QEV session encryption key established with peer.");
+  }
+
+  function resetSafetyVerification(): void {
+    setSafetyVerified(false);
+    setSafetyVerifiedAt("");
+  }
+
+  function verifySafetyNumber(): void {
+    if (!peerDevice || !sessionKey) {
+      setError("Cannot verify safety number until a peer and QEV key are present.");
+      return;
+    }
+
+    setSafetyVerified(true);
+    setSafetyVerifiedAt(new Date().toISOString());
+    addAudit("QEV safety number marked verified by local user.");
+  }
+
+  function clearSafetyVerification(): void {
+    resetSafetyVerification();
+    addAudit("QEV safety verification cleared.");
   }
 
   async function connect(): Promise<SignalingClient> {
@@ -163,6 +196,7 @@ export function App() {
       const dev = await ensureDevice();
       const client = signalingRef.current;
       if (!client || !roomCode) throw new Error("Create or join a room first.");
+      if (!canUsePrivateLayer) throw new Error("Compare and verify the QEV safety number before starting screen share.");
 
       const peer = createPeer(client, dev.deviceId, roomCode);
       peerRef.current = peer;
@@ -179,6 +213,7 @@ export function App() {
       const dev = await ensureDevice();
       const client = signalingRef.current;
       if (!client || !roomCode) throw new Error("Create or join a room first.");
+      if (!canUsePrivateLayer) throw new Error("Compare and verify the QEV safety number before starting video call.");
 
       const peer = createPeer(client, dev.deviceId, roomCode);
       peerRef.current = peer;
@@ -197,6 +232,7 @@ export function App() {
       const client = signalingRef.current;
       if (!client || !roomCode) throw new Error("Join a session first.");
       if (!peerDevice) throw new Error("No peer connected yet.");
+      if (!canUsePrivateLayer) throw new Error("Verify the QEV safety number before requesting control.");
 
       client.sendSignal(
         "control.request",
@@ -219,6 +255,7 @@ export function App() {
       const client = signalingRef.current;
       if (!client || !roomCode) throw new Error("No active session.");
       if (!peerDevice) throw new Error("No peer to grant control to.");
+      if (!canUsePrivateLayer) throw new Error("Verify the QEV safety number before granting control.");
 
       const grant: ControlGrantPayload = {
         grantId: createId("grant"),
@@ -249,6 +286,7 @@ export function App() {
     setHostGrant(null);
     setViewerGrant(null);
     setIncomingControlRequest(false);
+    resetSafetyVerification();
     void revokeLocalAgent();
     addAudit("Remote control revoked.");
   }
@@ -322,6 +360,7 @@ export function App() {
       setRoomCode(payload.roomCode);
       setSessionId(payload.sessionId);
       setPeerDevice(payload.peer ?? null);
+      resetSafetyVerification();
       await establishSessionKey(dev, payload.peer);
       setSessionStatus("joined");
       writeRoomToUrl(payload.roomCode);
@@ -333,6 +372,7 @@ export function App() {
     if (message.type === "room.peer_joined") {
       const payload = message.payload as { device?: DeviceIdentityPublic };
       setPeerDevice(payload.device ?? null);
+      resetSafetyVerification();
       await establishSessionKey(dev, payload.device);
       setSessionStatus("peer-connected");
       addAudit(`Peer joined: ${payload.device?.displayName ?? "unknown device"}.`);
@@ -341,6 +381,7 @@ export function App() {
 
     if (message.type === "room.peer_left") {
       addAudit("Peer disconnected.");
+      resetSafetyVerification();
       clearPeerState();
       setSessionStatus("created");
       return;
@@ -472,6 +513,7 @@ export function App() {
 
       if (!body) return;
       if (!sessionKey) throw new Error("QEV session key is not established yet.");
+      if (!safetyVerified) throw new Error("Verify the QEV safety number before sending encrypted chat.");
       if (!peerRef.current) throw new Error("Peer channel is not ready yet.");
 
       const roomLockHash = await computeRoomLockHash(roomCode, roomPassphrase);
@@ -596,6 +638,7 @@ export function App() {
   async function grantControl(): Promise<void> {
     await safe(async () => {
       if (!roomCode || !sessionId) throw new Error("Create a session before granting control.");
+      if (!canUsePrivateLayer) throw new Error("Verify the QEV safety number before creating a control grant.");
 
       const grant = createPointerGrant({
         roomCode,
@@ -716,6 +759,7 @@ export function App() {
   function clearPeerState(): void {
     setPeerDevice(null);
     setSessionKey(null);
+    resetSafetyVerification();
     setRemoteVisible(false);
     setLocalMediaVisible(false);
     setLocalMediaStatus("idle");
@@ -822,8 +866,8 @@ export function App() {
           </div>
           <div className="button-row">
             <button className="secondary" disabled={!roomCode} onClick={() => void copyInviteLink()}>Copy invite link</button>
-            <button disabled={!canShare} onClick={() => void startShare()}>Share screen with browser prompt</button>
-            <button disabled={!canStartMedia} onClick={() => void startVideoCall()}>Start private video call</button>
+            <button disabled={!canShare || !canUsePrivateLayer} onClick={() => void startShare()}>Share screen with browser prompt</button>
+            <button disabled={!canStartMedia || !canUsePrivateLayer} onClick={() => void startVideoCall()}>Start private video call</button>
             <button className="danger" onClick={endSession}>End session</button>
           </div>
         </div>
@@ -835,6 +879,18 @@ export function App() {
           <p className="kv"><span>Peer</span><strong>{peerDevice?.displayName ?? "pending"}</strong></p>
           <p className="kv"><span>Safety number</span><strong>{fingerprint}</strong></p>
           <p className="kv"><span>QEV key</span><strong>{sessionKey ? "established" : "pending"}</strong></p>
+          <p className="kv"><span>Safety verification</span><strong>{safetyStatus}</strong></p>
+          <div className="button-row safety-actions">
+            <button disabled={!sessionKey || !peerDevice || safetyVerified} onClick={verifySafetyNumber}>
+              Mark safety number verified
+            </button>
+            <button className="secondary" disabled={!safetyVerified} onClick={clearSafetyVerification}>
+              Clear verification
+            </button>
+          </div>
+          <p className="safety-note">
+            Compare this safety number with the other person before using private chat, screen share, video, or control.
+          </p>
           <div className={sessionStatus === "sharing" || sessionStatus === "viewing" ? "indicator live" : "indicator"}>
             {sessionStatus === "sharing" ? "You are sharing your screen" : sessionStatus === "viewing" ? "You are viewing a shared screen" : "No active screen session"}
           </div>
@@ -847,10 +903,10 @@ export function App() {
             native desktop agent is installed and explicitly approved.
           </p>
           <div className="button-row">
-            <button disabled={!remoteVisible || !sessionKey || hasActiveViewerGrant} onClick={() => void requestControl()}>
+            <button disabled={!remoteVisible || !canUsePrivateLayer || hasActiveViewerGrant} onClick={() => void requestControl()}>
               Request pointer control
             </button>
-            <button disabled={!incomingControlRequest || !sessionKey} onClick={() => void grantPointerControl()}>
+            <button disabled={!incomingControlRequest || !canUsePrivateLayer} onClick={() => void grantPointerControl()}>
               Grant pointer control for 5 minutes
             </button>
             <button className="danger" disabled={!hasActiveHostGrant && !hasActiveViewerGrant} onClick={revokeControl}>
@@ -877,10 +933,10 @@ export function App() {
           </p>
 
           <div className="button-row">
-            <button disabled={!sessionId || sessionStatus === "none"} onClick={() => void requestControl()}>
+            <button disabled={!sessionId || sessionStatus === "none" || !canUsePrivateLayer} onClick={() => void requestControl()}>
               Request control
             </button>
-            <button disabled={!sessionId} onClick={() => void grantControl()}>
+            <button disabled={!sessionId || !canUsePrivateLayer} onClick={() => void grantControl()}>
               Grant pointer control for 5 minutes
             </button>
             <button className="secondary" disabled={!controlGrant} onClick={() => void copyAgentCommand()}>
