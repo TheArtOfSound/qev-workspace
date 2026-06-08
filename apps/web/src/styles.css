@@ -833,3 +833,9 @@ pre {
   font-size: 0.82rem;
   line-height: 1.55;
 }
+
+.crash-shell {
+  min-height: 100dvh;
+  display: grid;
+  align-content: center;
+}

@@ -127,6 +127,8 @@ export function App() {
   const [peerKeyFingerprint, setPeerKeyFingerprint] = useState("pending");
   const [peerTrustStatus, setPeerTrustStatus] = useState("pending peer");
   const [mediaPrivacy, setMediaPrivacy] = useState<MediaPrivacyCapability>(() => detectMediaPrivacyCapability());
+  const [frameMediaEncryptionEnabled, setFrameMediaEncryptionEnabled] = useState(false);
+  const [frameCryptoStatus, setFrameCryptoStatus] = useState("not attached");
 
   const fingerprint = device && sessionId ? sessionFingerprint(sessionId, device.deviceId, peerDevice?.deviceId) : "pending peer";
   const canJoin = relayStatus !== "connecting" && roomCode.trim().length >= 8;
@@ -383,7 +385,7 @@ export function App() {
       if (!client || !roomCode) throw new Error("Create or join a room first.");
       if (!canUsePrivateLayer) throw new Error("Compare and verify the QEV safety number before starting screen share.");
 
-      const peer = createPeer(client, dev.deviceId, roomCode, canEnableQevMediaFrames)
+      const peer = createPeer(client, dev.deviceId, roomCode, canEnableQevMediaFrames);
       peerRef.current = peer;
 
       const offer = await peer.startScreenShare();
@@ -400,7 +402,7 @@ export function App() {
       if (!client || !roomCode) throw new Error("Create or join a room first.");
       if (!canUsePrivateLayer) throw new Error("Compare and verify the QEV safety number before starting video call.");
 
-      const peer = createPeer(client, dev.deviceId, roomCode, canEnableQevMediaFrames)
+      const peer = createPeer(client, dev.deviceId, roomCode, canEnableQevMediaFrames);
       peerRef.current = peer;
 
       const offer = await peer.startCameraCall({ video: true, audio: true });
