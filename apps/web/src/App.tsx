@@ -25,6 +25,19 @@ const LOCAL_AGENT_URL = "http://127.0.0.1:39483";
 
 type SessionStatus = "none" | "created" | "joined" | "peer-connected" | "sharing" | "viewing" | "ended";
 
+type PrivateChatPayload = {
+  kind: "qev.chat.v1";
+  id: string;
+  body: string;
+  sender: string;
+  sentAt: string;
+};
+
+type ChatEntry = PrivateChatPayload & {
+  direction: "me" | "peer" | "system";
+  encrypted: boolean;
+};
+
 export function App() {
   const vault = useMemo(() => new BrowserQevVaultAdapter(), []);
   const signalingRef = useRef<SignalingClient | null>(null);
@@ -54,6 +67,9 @@ export function App() {
   const [hostGrant, setHostGrant] = useState<ControlGrantPayload | null>(null);
   const [lastControlIntent, setLastControlIntent] = useState("");
   const [localAgentStatus, setLocalAgentStatus] = useState("not checked");
+  const [chatInput, setChatInput] = useState("");
+  const [chatMessages, setChatMessages] = useState<ChatEntry[]>([]);
+  const [lastPrivateData, setLastPrivateData] = useState("none");
 
   const fingerprint = device && sessionId ? sessionFingerprint(sessionId, device.deviceId, peerDevice?.deviceId) : "pending peer";
   const canJoin = relayStatus !== "connecting" && roomCode.trim().length >= 8;
@@ -346,6 +362,70 @@ export function App() {
     }
   }
 
+
+  async function receiveEncryptedPeerData(payload: EncryptedPayload): Promise<void> {
+    if (!sessionKey) {
+      addAudit("Rejected private peer data: no QEV session key.");
+      return;
+    }
+
+    try {
+      const message = await decryptJson<PrivateChatPayload>(sessionKey, payload);
+
+      if (message.kind === "qev.chat.v1") {
+        setChatMessages((current) => [
+          ...current,
+          {
+            ...message,
+            direction: "peer",
+            encrypted: true,
+          },
+        ].slice(-100));
+
+        setLastPrivateData(`Encrypted chat received at ${new Date(message.sentAt).toLocaleTimeString()}.`);
+        return;
+      }
+
+      addAudit("Ignored unknown encrypted peer data payload.");
+    } catch {
+      addAudit("Rejected private peer data: decrypt failed.");
+    }
+  }
+
+  async function sendEncryptedChat(): Promise<void> {
+    await safe(async () => {
+      const body = chatInput.trim();
+
+      if (!body) return;
+      if (!sessionKey) throw new Error("QEV session key is not established yet.");
+      if (!peerRef.current) throw new Error("Peer channel is not ready yet.");
+
+      const message: PrivateChatPayload = {
+        kind: "qev.chat.v1",
+        id: createId("chat"),
+        body,
+        sender: displayName.trim() || "QEV User",
+        sentAt: new Date().toISOString(),
+      };
+
+      const encrypted = await encryptJson(sessionKey, message);
+      peerRef.current.sendEncrypted(encrypted);
+
+      setChatMessages((current) => [
+        ...current,
+        {
+          ...message,
+          direction: "me",
+          encrypted: true,
+        },
+      ].slice(-100));
+
+      setChatInput("");
+      setLastPrivateData(`Encrypted chat sent at ${new Date(message.sentAt).toLocaleTimeString()}.`);
+      addAudit("QEV encrypted chat message sent over peer data channel.");
+    });
+  }
+
   async function receiveEncryptedControlIntent(payload: EncryptedPayload): Promise<void> {
     if (!sessionKey) {
       addAudit("Rejected control intent: no QEV session key.");
@@ -392,6 +472,7 @@ export function App() {
         addAudit("Remote stream attached.");
       },
       onPointer: (payload) => setPointer(payload),
+      onEncryptedData: (payload) => void receiveEncryptedPeerData(payload),
       onAudit: addAudit,
     });
   }
@@ -559,6 +640,9 @@ export function App() {
     setIncomingControlRequest(false);
     void revokeLocalAgent();
     setLastControlIntent("");
+    setChatInput("");
+    setChatMessages([]);
+    setLastPrivateData("none");
   }
 
   function addAudit(message: string): void {
