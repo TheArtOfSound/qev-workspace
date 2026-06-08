@@ -75,6 +75,9 @@ type QevEncryptedExportFile = {
   exportedAt: string;
 };
 
+type WorkspaceSection = "workspace" | "setup" | "security" | "controls" | "logs";
+type ThemeMode = "system" | "light" | "dark";
+
 export function App() {
   const vault = useMemo(() => new BrowserQevVaultAdapter(), []);
   const signalingRef = useRef<SignalingClient | null>(null);
@@ -84,6 +87,12 @@ export function App() {
   const sessionKeyRef = useRef<CryptoKey | null>(null);
   const frameMediaEncryptionEnabledRef = useRef(false);
 
+  const [activeSection, setActiveSection] = useState<WorkspaceSection>("workspace");
+  const [themeMode, setThemeMode] = useState<ThemeMode>(() => {
+    if (typeof localStorage === "undefined") return "system";
+    const saved = localStorage.getItem("qev.workspace.theme.v1");
+    return saved === "light" || saved === "dark" || saved === "system" ? saved : "system";
+  });
   const [relayUrl, setRelayUrl] = useState(DEFAULT_RELAY_URL);
   const [displayName, setDisplayName] = useState("QEV User");
   const [device, setDevice] = useState<DeviceIdentity | null>(null);
@@ -151,6 +160,18 @@ export function App() {
       : safetyVerified
         ? `verified${safetyVerifiedAt ? ` at ${new Date(safetyVerifiedAt).toLocaleTimeString()}` : ""}`
         : "unverified";
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    if (themeMode === "system") {
+      document.documentElement.removeAttribute("data-theme");
+    } else {
+      document.documentElement.setAttribute("data-theme", themeMode);
+    }
+
+    localStorage.setItem("qev.workspace.theme.v1", themeMode);
+  }, [themeMode]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1166,7 +1187,7 @@ export function App() {
   }
 
   return (
-    <main className="shell">
+    <main className="shell" data-section={activeSection}>
       <section className="hero">
         <div>
           <p className="eyebrow">QEV Workspace</p>
@@ -1187,6 +1208,32 @@ export function App() {
 
       {error ? <div className="error">{error}</div> : null}
 
+      <section className="workspace-chrome">
+        <nav className="workspace-switcher" aria-label="QEV workspace sections">
+          <button className={activeSection === "workspace" ? "active" : ""} aria-pressed={activeSection === "workspace"} onClick={() => setActiveSection("workspace")}>
+            Workspace
+          </button>
+          <button className={activeSection === "setup" ? "active" : ""} aria-pressed={activeSection === "setup"} onClick={() => setActiveSection("setup")}>
+            Setup
+          </button>
+          <button className={activeSection === "security" ? "active" : ""} aria-pressed={activeSection === "security"} onClick={() => setActiveSection("security")}>
+            Security
+          </button>
+          <button className={activeSection === "controls" ? "active" : ""} aria-pressed={activeSection === "controls"} onClick={() => setActiveSection("controls")}>
+            Control
+          </button>
+          <button className={activeSection === "logs" ? "active" : ""} aria-pressed={activeSection === "logs"} onClick={() => setActiveSection("logs")}>
+            Logs
+          </button>
+        </nav>
+
+        <div className="theme-switcher" aria-label="Theme mode">
+          <span>Theme</span>
+          <button className={themeMode === "system" ? "active" : ""} aria-pressed={themeMode === "system"} onClick={() => setThemeMode("system")}>System</button>
+          <button className={themeMode === "light" ? "active" : ""} aria-pressed={themeMode === "light"} onClick={() => setThemeMode("light")}>Light</button>
+          <button className={themeMode === "dark" ? "active" : ""} aria-pressed={themeMode === "dark"} onClick={() => setThemeMode("dark")}>Dark</button>
+        </div>
+      </section>
 
       <section className="download-strip">
         <div>
@@ -1206,7 +1253,7 @@ export function App() {
       </section>
 
       <section className="grid">
-        <div className="panel identity-panel">
+        <div className="panel identity-panel" data-section="setup">
           <h2>Identity</h2>
           <label>
             Display name
@@ -1223,7 +1270,7 @@ export function App() {
           <p className="mono">Device: {device ? device.deviceId : "not created"}</p>
         </div>
 
-        <div className="panel session-panel">
+        <div className="panel session-panel" data-section="setup">
           <h2>Session</h2>
           <div className="button-row">
             <button onClick={() => void createSession()}>Create session</button>
@@ -1260,7 +1307,7 @@ export function App() {
           </div>
         </div>
 
-        <div className="panel consent-panel">
+        <div className="panel consent-panel" data-section="security">
           <h2>Consent state</h2>
           <p className="kv"><span>Session</span><strong>{sessionStatus}</strong></p>
           <p className="kv"><span>Session ID</span><strong>{sessionId || "not created"}</strong></p>
@@ -1348,7 +1395,7 @@ export function App() {
           </div>
         </div>
 
-        <div className="panel wide control-panel control-permission-panel">
+        <div className="panel wide control-panel control-permission-panel" data-section="controls">
           <h2>Remote control permission</h2>
           <p>
             Browser MVP supports encrypted control intents. OS mouse/keyboard injection remains blocked until the
@@ -1377,7 +1424,7 @@ export function App() {
           </div>
         </div>
 
-        <div className="panel wide control-panel control-legacy-panel">
+        <div className="panel wide control-panel control-legacy-panel" data-section="controls">
           <h2>Remote control</h2>
           <p>
             Browser screen sharing is live. Actual OS control requires the visible QEV host agent on the machine being controlled.
@@ -1416,7 +1463,7 @@ export function App() {
           ) : null}
         </div>
 
-        <div className="panel wide local-preview">
+        <div className="panel wide local-preview" data-section="workspace">
           <h2>Local camera / mic</h2>
           <p>
             Your local media stays visible here when camera/mic is active. Browser permission is required every time.
@@ -1437,7 +1484,7 @@ export function App() {
           </div>
         </div>
 
-        <div className="panel wide remote-stage">
+        <div className="panel wide remote-stage" data-section="workspace">
           <h2>Remote screen</h2>
           <div className="video-wrap">
             <video
@@ -1459,7 +1506,7 @@ export function App() {
           </div>
         </div>
 
-        <div className="panel wide audit-panel">
+        <div className="panel wide audit-panel" data-section="logs">
           <h2>Audit</h2>
           <ul className="audit">
             {audit.map((entry, index) => (

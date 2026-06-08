@@ -844,3 +844,345 @@ pre {
 .session-panel .danger {
   min-width: max-content;
 }
+
+/* qev-slack-organized-layout-v1 */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #ffffff;
+  --panel: #ffffff;
+  --panel-soft: #f7f7f7;
+  --text: #000000;
+  --muted: #555555;
+  --faint: #777777;
+  --line: #d8d8d8;
+  --line-strong: #000000;
+  --button-bg: #000000;
+  --button-text: #ffffff;
+  --danger-bg: #ffffff;
+  --danger-text: #000000;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #000000;
+  --panel: #000000;
+  --panel-soft: #070707;
+  --text: #ffffff;
+  --muted: #b9b9b9;
+  --faint: #8a8a8a;
+  --line: #303030;
+  --line-strong: #ffffff;
+  --button-bg: #ffffff;
+  --button-text: #000000;
+  --danger-bg: #000000;
+  --danger-text: #ffffff;
+}
+
+.workspace-chrome {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.workspace-switcher,
+.theme-switcher {
+  border: 1px solid var(--line-strong);
+  background: var(--panel);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  min-width: 0;
+}
+
+.workspace-switcher {
+  overflow: auto;
+}
+
+.theme-switcher span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0 0.45rem;
+  white-space: nowrap;
+}
+
+.workspace-switcher button,
+.theme-switcher button {
+  background: transparent;
+  color: var(--text);
+  border-color: transparent;
+  padding: 0.62rem 0.82rem;
+  white-space: nowrap;
+}
+
+.workspace-switcher button.active,
+.theme-switcher button.active {
+  background: var(--button-bg);
+  color: var(--button-text);
+  border-color: var(--line-strong);
+}
+
+.grid > .panel[data-section] {
+  display: none;
+}
+
+.shell[data-section="workspace"] .grid > .panel[data-section="workspace"],
+.shell[data-section="setup"] .grid > .panel[data-section="setup"],
+.shell[data-section="security"] .grid > .panel[data-section="security"],
+.shell[data-section="controls"] .grid > .panel[data-section="controls"],
+.shell[data-section="logs"] .grid > .panel[data-section="logs"] {
+  display: grid;
+}
+
+.shell[data-section="workspace"] .control-permission-panel,
+.shell[data-section="workspace"] .control-legacy-panel,
+.shell[data-section="setup"] .control-permission-panel,
+.shell[data-section="setup"] .control-legacy-panel,
+.shell[data-section="security"] .control-permission-panel,
+.shell[data-section="security"] .control-legacy-panel,
+.shell[data-section="logs"] .control-permission-panel,
+.shell[data-section="logs"] .control-legacy-panel {
+  display: none !important;
+}
+
+@media (min-width: 1180px) {
+  html,
+  body,
+  #root {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .shell {
+    width: 100vw;
+    max-width: none;
+    height: 100dvh;
+    padding: 12px;
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    gap: 10px;
+    overflow: hidden;
+  }
+
+  .hero {
+    grid-template-columns: minmax(0, 1fr) 260px;
+    gap: 10px;
+    margin: 0;
+    min-height: 0;
+  }
+
+  .hero > div,
+  .status-card {
+    padding: 0.9rem;
+  }
+
+  .hero h1 {
+    font-size: clamp(2rem, 3.1vw, 3.7rem);
+    line-height: 0.9;
+    max-width: 980px;
+  }
+
+  .lede {
+    max-width: 940px;
+    margin: 0.55rem 0;
+    line-height: 1.45;
+  }
+
+  .safety-line {
+    padding: 0.6rem;
+  }
+
+  .download-strip {
+    display: none;
+  }
+
+  .grid {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    gap: 10px;
+    align-items: stretch;
+  }
+
+  .grid > .panel {
+    min-height: 0;
+    overflow: auto;
+    padding: 1rem;
+  }
+
+  .shell[data-section="workspace"] .grid {
+    display: grid;
+    grid-template-columns: minmax(640px, 1fr) 410px;
+    grid-template-rows: minmax(0, 1fr);
+    grid-template-areas: "stage chat";
+  }
+
+  .shell[data-section="workspace"] .remote-stage {
+    grid-area: stage;
+    overflow: hidden !important;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .shell[data-section="workspace"] .remote-stage .video-wrap {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .shell[data-section="workspace"] .remote-stage .remote {
+    height: 100%;
+    min-height: 0;
+    object-fit: contain;
+  }
+
+  .shell[data-section="workspace"] .chat-panel {
+    grid-area: chat;
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    overflow: hidden;
+  }
+
+  .shell[data-section="workspace"] .chat-log {
+    min-height: 0;
+    max-height: none;
+    overflow: auto;
+  }
+
+  .shell[data-section="workspace"] .local-preview {
+    grid-area: stage;
+    align-self: end;
+    justify-self: end;
+    width: 300px;
+    max-width: 32%;
+    z-index: 4;
+    margin: 16px;
+    padding: 0.75rem !important;
+    background: var(--panel);
+    overflow: hidden;
+  }
+
+  .shell[data-section="workspace"] .local-preview h2 {
+    font-size: 0.76rem;
+  }
+
+  .shell[data-section="workspace"] .local-preview p,
+  .shell[data-section="workspace"] .local-preview .control-grid {
+    display: none;
+  }
+
+  .shell[data-section="workspace"] .local-preview .video-wrap {
+    min-height: 170px;
+    height: 170px;
+  }
+
+  .shell[data-section="workspace"] .local-wrap .remote {
+    min-height: 170px;
+    height: 170px;
+    object-fit: cover;
+  }
+
+  .shell[data-section="setup"] .grid {
+    display: grid;
+    grid-template-columns: minmax(360px, 0.85fr) minmax(520px, 1.15fr);
+    grid-template-rows: minmax(0, 1fr);
+    grid-template-areas: "identity session";
+  }
+
+  .shell[data-section="setup"] .identity-panel {
+    grid-area: identity;
+  }
+
+  .shell[data-section="setup"] .session-panel {
+    grid-area: session;
+  }
+
+  .shell[data-section="security"] .grid {
+    display: grid;
+    grid-template-columns: minmax(780px, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .shell[data-section="security"] .consent-panel {
+    max-width: 1120px;
+    width: 100%;
+    justify-self: center;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(360px, 0.8fr);
+    align-content: start;
+    gap: 0.9rem;
+  }
+
+  .shell[data-section="security"] .consent-panel > h2,
+  .shell[data-section="security"] .consent-panel > .safety-actions,
+  .shell[data-section="security"] .consent-panel > .safety-note,
+  .shell[data-section="security"] .consent-panel > .indicator {
+    grid-column: 1 / -1;
+  }
+
+  .shell[data-section="security"] .consent-panel > .privacy-box {
+    align-self: start;
+  }
+
+  .shell[data-section="controls"] .grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(420px, 1fr));
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .shell[data-section="controls"] .control-permission-panel,
+  .shell[data-section="controls"] .control-legacy-panel {
+    display: grid !important;
+  }
+
+  .shell[data-section="logs"] .grid {
+    display: grid;
+    grid-template-columns: minmax(760px, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .shell[data-section="logs"] .audit-panel {
+    max-width: 1180px;
+    width: 100%;
+    justify-self: center;
+  }
+
+  .audit {
+    max-height: none;
+  }
+
+  .control-grid {
+    grid-template-columns: 1fr;
+  }
+
+  button,
+  .download-button,
+  input {
+    font-size: 0.82rem;
+  }
+
+  button,
+  .download-button {
+    padding: 0.72rem 0.82rem;
+  }
+
+  input {
+    padding: 0.74rem 0.82rem;
+  }
+}
+
+@media (max-width: 900px) {
+  .workspace-chrome {
+    grid-template-columns: 1fr;
+  }
+
+  .theme-switcher {
+    justify-content: space-between;
+  }
+
+  .workspace-switcher button,
+  .theme-switcher button {
+    flex: 1 0 auto;
+  }
+}
