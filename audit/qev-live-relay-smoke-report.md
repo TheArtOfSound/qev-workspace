@@ -1,6 +1,6 @@
 # QEV Live Relay Headless Smoke Report
 
-Generated: 2026-06-08T18:59:34.345Z
+Generated: 2026-06-08T19:03:18.476Z
 
 Base URL: http://localhost:5173
 

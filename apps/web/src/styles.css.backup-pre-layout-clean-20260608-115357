@@ -1,0 +1,3095 @@
+:root {
+  color-scheme: light dark;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-synthesis: none;
+  text-rendering: geometricPrecision;
+  --bg: #ffffff;
+  --panel: #ffffff;
+  --panel-soft: #f7f7f7;
+  --text: #000000;
+  --muted: #555555;
+  --faint: #777777;
+  --line: #d8d8d8;
+  --line-strong: #000000;
+  --button-bg: #000000;
+  --button-text: #ffffff;
+  --danger-bg: #ffffff;
+  --danger-text: #000000;
+  --shadow: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #000000;
+    --panel: #000000;
+    --panel-soft: #070707;
+    --text: #ffffff;
+    --muted: #b9b9b9;
+    --faint: #8a8a8a;
+    --line: #303030;
+    --line-strong: #ffffff;
+    --button-bg: #ffffff;
+    --button-text: #000000;
+    --danger-bg: #000000;
+    --danger-text: #ffffff;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size: 44px 44px;
+  opacity: 0.18;
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.65), transparent 78%);
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button,
+.download-button {
+  appearance: none;
+  border: 1px solid var(--line-strong);
+  border-radius: 0;
+  padding: 0.86rem 1.05rem;
+  background: var(--button-bg);
+  color: var(--button-text);
+  font-weight: 800;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.045em;
+  box-shadow: none;
+}
+
+button:hover,
+.download-button:hover {
+  background: var(--bg);
+  color: var(--text);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+button.secondary {
+  background: var(--bg);
+  color: var(--text);
+}
+
+button.secondary:hover {
+  background: var(--button-bg);
+  color: var(--button-text);
+}
+
+button.danger {
+  border-color: var(--line-strong);
+  background: var(--danger-bg);
+  color: var(--danger-text);
+}
+
+button.danger::before {
+  content: "! ";
+}
+
+input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  padding: 0.86rem 0.95rem;
+  color: var(--text);
+  background: var(--panel-soft);
+  outline: none;
+}
+
+input:focus {
+  border-color: var(--line-strong);
+  background: var(--panel);
+}
+
+label {
+  display: grid;
+  gap: 0.55rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.shell {
+  width: min(1320px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 1.8rem 0 4.5rem;
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 12px;
+  align-items: stretch;
+  margin-bottom: 12px;
+}
+
+.hero > div,
+.status-card,
+.panel,
+.download-strip > div {
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+}
+
+.hero > div,
+.status-card {
+  padding: 1.55rem;
+}
+
+.eyebrow {
+  color: var(--muted);
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  margin: 0 0 1rem;
+  font-size: 0.75rem;
+}
+
+h1 {
+  margin: 0;
+  max-width: 980px;
+  font-size: clamp(2.3rem, 6.5vw, 6.6rem);
+  line-height: 0.9;
+  letter-spacing: -0.075em;
+  font-weight: 850;
+}
+
+h2 {
+  margin: 0;
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+p {
+  line-height: 1.65;
+}
+
+.lede {
+  max-width: 820px;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+.safety-line,
+.error {
+  border: 1px solid var(--line-strong);
+  background: var(--panel-soft);
+  border-radius: 0;
+  padding: 1rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.safety-line::before {
+  content: "SAFETY // ";
+  color: var(--muted);
+}
+
+.error {
+  color: var(--text);
+  margin-bottom: 12px;
+}
+
+.error::before {
+  content: "ERROR // ";
+  color: var(--muted);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.panel,
+.status-card,
+.download-strip {
+  box-shadow: var(--shadow);
+  border-radius: 0;
+  padding: 1.45rem;
+}
+
+.status-card {
+  display: grid;
+  align-content: center;
+  gap: 0.55rem;
+}
+
+.status-card span,
+.status-card small {
+  color: var(--muted);
+}
+
+.status-card small {
+  word-break: break-all;
+}
+
+.status {
+  font-size: 1.65rem;
+  text-transform: uppercase;
+  letter-spacing: -0.04em;
+}
+
+.status.open::after {
+  content: " / LIVE";
+  color: var(--muted);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+}
+
+.status.error,
+.status.closed {
+  color: var(--text);
+}
+
+.panel {
+  display: grid;
+  gap: 1.15rem;
+}
+
+.wide {
+  grid-column: span 3;
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.mono,
+pre,
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+.mono {
+  color: var(--text);
+  word-break: break-all;
+  font-size: 0.82rem;
+}
+
+.kv {
+  display: flex;
+  justify-content: space-between;
+  gap: 1.15rem;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 0.7rem;
+  font-size: 0.84rem;
+}
+
+.kv span {
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.kv strong {
+  text-align: right;
+  word-break: break-word;
+  font-weight: 800;
+}
+
+.indicator {
+  border-radius: 0;
+  border: 1px solid var(--line);
+  padding: 1rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.indicator.live {
+  border-color: var(--line-strong);
+  background: var(--button-bg);
+  color: var(--button-text);
+  font-weight: 850;
+}
+
+.download-strip {
+  margin: 0 0 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 360px);
+  gap: 12px;
+  align-items: stretch;
+  border: 0;
+  padding: 0;
+}
+
+.download-strip > div {
+  padding: 1.45rem;
+}
+
+.download-strip p {
+  margin: 0.8rem 0 0;
+  color: var(--muted);
+}
+
+.download-actions {
+  display: grid;
+  gap: 0.95rem;
+  align-content: center;
+  justify-items: stretch;
+}
+
+.download-button {
+  display: inline-flex;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.download-actions small {
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.download-actions code {
+  display: inline-block;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  padding: 0.38rem 0.5rem;
+  background: var(--panel-soft);
+  color: var(--text);
+  font-size: 0.78rem;
+  margin-bottom: 0.3rem;
+}
+
+.control-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem 1.1rem;
+}
+
+.agent-command,
+pre {
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  background: var(--panel-soft);
+  color: var(--text);
+  padding: 1rem;
+  font-size: 0.8rem;
+}
+
+.video-wrap {
+  min-height: 460px;
+  position: relative;
+  overflow: hidden;
+  border-radius: 0;
+  border: 1px solid var(--line);
+  background: var(--panel-soft);
+}
+
+.remote {
+  width: 100%;
+  min-height: 460px;
+  display: none;
+  background: var(--bg);
+  filter: grayscale(1) contrast(1.05);
+}
+
+.remote.active {
+  display: block;
+}
+
+.empty-video {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--faint);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.82rem;
+}
+
+.pointer {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  transform: translate(-50%, -50%);
+  border-radius: 0;
+  border: 1px solid var(--bg);
+  background: var(--text);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--text) 16%, transparent);
+  pointer-events: none;
+}
+
+.audit,
+.chat-log {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.65rem;
+  max-height: 360px;
+  overflow: auto;
+}
+
+.audit li {
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 0.6rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.chat-panel {
+  border-color: var(--line-strong);
+}
+
+.chat-log {
+  min-height: 210px;
+  padding: 0.9rem;
+  border: 1px solid var(--line);
+  background: var(--panel-soft);
+}
+
+.chat-empty {
+  color: var(--faint);
+  display: grid;
+  place-items: center;
+  min-height: 150px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.82rem;
+}
+
+.chat-message {
+  border: 1px solid var(--line);
+  padding: 0.9rem;
+  background: var(--panel);
+}
+
+.chat-message.me {
+  border-color: var(--line-strong);
+}
+
+.chat-message.peer {
+  border-style: dashed;
+}
+
+.chat-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  align-items: center;
+  color: var(--muted);
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.chat-meta strong {
+  color: var(--text);
+}
+
+.chat-meta em {
+  color: var(--text);
+  font-style: normal;
+}
+
+.chat-meta em::before {
+  content: "[";
+  color: var(--muted);
+}
+
+.chat-meta em::after {
+  content: "]";
+  color: var(--muted);
+}
+
+.chat-message p {
+  margin: 0.55rem 0 0;
+  color: var(--text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.chat-compose {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+}
+
+@media (max-width: 980px) {
+  .hero,
+  .download-strip,
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .wide {
+    grid-column: span 1;
+  }
+
+  .control-grid,
+  .chat-compose {
+    grid-template-columns: 1fr;
+  }
+
+  .shell {
+    width: min(100% - 24px, 760px);
+    padding-top: 1rem;
+  }
+
+  h1 {
+    font-size: clamp(2.2rem, 14vw, 4.4rem);
+  }
+}
+
+.local-preview p {
+  color: var(--muted);
+  margin: 0;
+}
+
+.local-wrap {
+  min-height: 280px;
+}
+
+.local-wrap .remote {
+  min-height: 280px;
+  object-fit: cover;
+}
+
+.session-lock-note {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+
+.safety-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.65;
+}
+
+.safety-actions {
+  align-items: center;
+}
+
+
+.trust-warning {
+  border-bottom-color: var(--line-strong);
+}
+
+.trust-warning strong {
+  text-transform: uppercase;
+}
+
+
+/* qev-landscape-workspace-shell-v1 */
+@media (min-width: 1180px) {
+  html,
+  body,
+  #root {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .shell {
+    width: 100vw;
+    max-width: none;
+    height: 100dvh;
+    padding: 14px;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 12px;
+    overflow: hidden;
+  }
+
+  .hero {
+    grid-template-columns: minmax(0, 1fr) 260px;
+    gap: 12px;
+    margin: 0;
+    min-height: 0;
+  }
+
+  .hero > div,
+  .status-card {
+    padding: 1rem;
+  }
+
+  h1 {
+    max-width: 980px;
+    font-size: clamp(2.2rem, 3.9vw, 4.7rem);
+    line-height: 0.9;
+  }
+
+  .lede {
+    max-width: 920px;
+    margin: 0.75rem 0;
+    line-height: 1.5;
+  }
+
+  .safety-line {
+    padding: 0.7rem;
+  }
+
+  .download-strip {
+    display: none;
+  }
+
+  .grid {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: 330px minmax(560px, 1fr) 390px;
+    grid-template-rows: minmax(0, 0.9fr) minmax(0, 1.08fr) 190px;
+    grid-template-areas:
+      "identity stage consent"
+      "session  stage chat"
+      "session  stage audit";
+    gap: 12px;
+    align-items: stretch;
+  }
+
+  .grid > .panel {
+    min-height: 0;
+    overflow: auto;
+    padding: 1rem;
+  }
+
+  .identity-panel {
+    grid-area: identity;
+  }
+
+  .session-panel {
+    grid-area: session;
+  }
+
+  .consent-panel {
+    grid-area: consent;
+  }
+
+  .remote-stage {
+    grid-area: stage;
+    overflow: hidden !important;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .remote-stage .video-wrap {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .remote-stage .remote {
+    height: 100%;
+    min-height: 0;
+    object-fit: contain;
+  }
+
+  .chat-panel {
+    grid-area: chat;
+  }
+
+  .audit-panel {
+    grid-area: audit;
+  }
+
+  .control-permission-panel,
+  .control-legacy-panel {
+    display: none;
+  }
+
+  .local-preview {
+    grid-area: stage;
+    align-self: end;
+    justify-self: end;
+    width: 300px;
+    max-width: 32%;
+    z-index: 4;
+    margin: 16px;
+    padding: 0.75rem !important;
+    background: var(--panel);
+  }
+
+  .local-preview h2 {
+    font-size: 0.76rem;
+  }
+
+  .local-preview p,
+  .local-preview .control-grid {
+    display: none;
+  }
+
+  .local-preview .video-wrap {
+    min-height: 170px;
+    height: 170px;
+  }
+
+  .local-wrap .remote {
+    min-height: 170px;
+    height: 170px;
+    object-fit: cover;
+  }
+
+  .chat-log {
+    min-height: 0;
+    max-height: none;
+  }
+
+  .audit {
+    max-height: none;
+  }
+
+  .button-row {
+    gap: 0.55rem;
+  }
+
+  button,
+  .download-button {
+    padding: 0.76rem 0.85rem;
+  }
+
+  input {
+    padding: 0.78rem 0.85rem;
+  }
+
+  .control-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+.privacy-box {
+  border: 1px solid var(--line);
+  background: var(--panel-soft);
+  padding: 1rem;
+  display: grid;
+  gap: 0.85rem;
+}
+
+.privacy-box h3 {
+  margin: 0;
+  font-size: 0.84rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.privacy-box p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.6;
+}
+
+
+.media-privacy-box {
+  margin-top: 0.85rem;
+}
+
+.media-privacy-box.media-ready {
+  border-color: var(--line-strong);
+}
+
+.media-privacy-box.media-transport-only,
+.media-privacy-box.media-blocked {
+  border-style: dashed;
+}
+
+.media-notes {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--muted);
+  display: grid;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.crash-shell {
+  min-height: 100dvh;
+  display: grid;
+  align-content: center;
+}
+
+
+.session-panel .danger {
+  min-width: max-content;
+}
+
+/* qev-slack-organized-layout-v1 */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #ffffff;
+  --panel: #ffffff;
+  --panel-soft: #f7f7f7;
+  --text: #000000;
+  --muted: #555555;
+  --faint: #777777;
+  --line: #d8d8d8;
+  --line-strong: #000000;
+  --button-bg: #000000;
+  --button-text: #ffffff;
+  --danger-bg: #ffffff;
+  --danger-text: #000000;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #000000;
+  --panel: #000000;
+  --panel-soft: #070707;
+  --text: #ffffff;
+  --muted: #b9b9b9;
+  --faint: #8a8a8a;
+  --line: #303030;
+  --line-strong: #ffffff;
+  --button-bg: #ffffff;
+  --button-text: #000000;
+  --danger-bg: #000000;
+  --danger-text: #ffffff;
+}
+
+.workspace-chrome {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.workspace-switcher,
+.theme-switcher {
+  border: 1px solid var(--line-strong);
+  background: var(--panel);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  min-width: 0;
+}
+
+.workspace-switcher {
+  overflow: auto;
+}
+
+.theme-switcher span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0 0.45rem;
+  white-space: nowrap;
+}
+
+.workspace-switcher button,
+.theme-switcher button {
+  background: transparent;
+  color: var(--text);
+  border-color: transparent;
+  padding: 0.62rem 0.82rem;
+  white-space: nowrap;
+}
+
+.workspace-switcher button.active,
+.theme-switcher button.active {
+  background: var(--button-bg);
+  color: var(--button-text);
+  border-color: var(--line-strong);
+}
+
+.grid > .panel[data-section] {
+  display: none;
+}
+
+.shell[data-section="workspace"] .grid > .panel[data-section="workspace"],
+.shell[data-section="setup"] .grid > .panel[data-section="setup"],
+.shell[data-section="security"] .grid > .panel[data-section="security"],
+.shell[data-section="controls"] .grid > .panel[data-section="controls"],
+.shell[data-section="logs"] .grid > .panel[data-section="logs"] {
+  display: grid;
+}
+
+.shell[data-section="workspace"] .control-permission-panel,
+.shell[data-section="workspace"] .control-legacy-panel,
+.shell[data-section="setup"] .control-permission-panel,
+.shell[data-section="setup"] .control-legacy-panel,
+.shell[data-section="security"] .control-permission-panel,
+.shell[data-section="security"] .control-legacy-panel,
+.shell[data-section="logs"] .control-permission-panel,
+.shell[data-section="logs"] .control-legacy-panel {
+  display: none !important;
+}
+
+@media (min-width: 1180px) {
+  html,
+  body,
+  #root {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .shell {
+    width: 100vw;
+    max-width: none;
+    height: 100dvh;
+    padding: 12px;
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    gap: 10px;
+    overflow: hidden;
+  }
+
+  .hero {
+    grid-template-columns: minmax(0, 1fr) 260px;
+    gap: 10px;
+    margin: 0;
+    min-height: 0;
+  }
+
+  .hero > div,
+  .status-card {
+    padding: 0.9rem;
+  }
+
+  .hero h1 {
+    font-size: clamp(2rem, 3.1vw, 3.7rem);
+    line-height: 0.9;
+    max-width: 980px;
+  }
+
+  .lede {
+    max-width: 940px;
+    margin: 0.55rem 0;
+    line-height: 1.45;
+  }
+
+  .safety-line {
+    padding: 0.6rem;
+  }
+
+  .download-strip {
+    display: none;
+  }
+
+  .grid {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    gap: 10px;
+    align-items: stretch;
+  }
+
+  .grid > .panel {
+    min-height: 0;
+    overflow: auto;
+    padding: 1rem;
+  }
+
+  .shell[data-section="workspace"] .grid {
+    display: grid;
+    grid-template-columns: minmax(640px, 1fr) 410px;
+    grid-template-rows: minmax(0, 1fr);
+    grid-template-areas: "stage chat";
+  }
+
+  .shell[data-section="workspace"] .remote-stage {
+    grid-area: stage;
+    overflow: hidden !important;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .shell[data-section="workspace"] .remote-stage .video-wrap {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .shell[data-section="workspace"] .remote-stage .remote {
+    height: 100%;
+    min-height: 0;
+    object-fit: contain;
+  }
+
+  .shell[data-section="workspace"] .chat-panel {
+    grid-area: chat;
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    overflow: hidden;
+  }
+
+  .shell[data-section="workspace"] .chat-log {
+    min-height: 0;
+    max-height: none;
+    overflow: auto;
+  }
+
+  .shell[data-section="workspace"] .local-preview {
+    grid-area: stage;
+    align-self: end;
+    justify-self: end;
+    width: 300px;
+    max-width: 32%;
+    z-index: 4;
+    margin: 16px;
+    padding: 0.75rem !important;
+    background: var(--panel);
+    overflow: hidden;
+  }
+
+  .shell[data-section="workspace"] .local-preview h2 {
+    font-size: 0.76rem;
+  }
+
+  .shell[data-section="workspace"] .local-preview p,
+  .shell[data-section="workspace"] .local-preview .control-grid {
+    display: none;
+  }
+
+  .shell[data-section="workspace"] .local-preview .video-wrap {
+    min-height: 170px;
+    height: 170px;
+  }
+
+  .shell[data-section="workspace"] .local-wrap .remote {
+    min-height: 170px;
+    height: 170px;
+    object-fit: cover;
+  }
+
+  .shell[data-section="setup"] .grid {
+    display: grid;
+    grid-template-columns: minmax(360px, 0.85fr) minmax(520px, 1.15fr);
+    grid-template-rows: minmax(0, 1fr);
+    grid-template-areas: "identity session";
+  }
+
+  .shell[data-section="setup"] .identity-panel {
+    grid-area: identity;
+  }
+
+  .shell[data-section="setup"] .session-panel {
+    grid-area: session;
+  }
+
+  .shell[data-section="security"] .grid {
+    display: grid;
+    grid-template-columns: minmax(780px, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .shell[data-section="security"] .consent-panel {
+    max-width: 1120px;
+    width: 100%;
+    justify-self: center;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(360px, 0.8fr);
+    align-content: start;
+    gap: 0.9rem;
+  }
+
+  .shell[data-section="security"] .consent-panel > h2,
+  .shell[data-section="security"] .consent-panel > .safety-actions,
+  .shell[data-section="security"] .consent-panel > .safety-note,
+  .shell[data-section="security"] .consent-panel > .indicator {
+    grid-column: 1 / -1;
+  }
+
+  .shell[data-section="security"] .consent-panel > .privacy-box {
+    align-self: start;
+  }
+
+  .shell[data-section="controls"] .grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(420px, 1fr));
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .shell[data-section="controls"] .control-permission-panel,
+  .shell[data-section="controls"] .control-legacy-panel {
+    display: grid !important;
+  }
+
+  .shell[data-section="logs"] .grid {
+    display: grid;
+    grid-template-columns: minmax(760px, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .shell[data-section="logs"] .audit-panel {
+    max-width: 1180px;
+    width: 100%;
+    justify-self: center;
+  }
+
+  .audit {
+    max-height: none;
+  }
+
+  .control-grid {
+    grid-template-columns: 1fr;
+  }
+
+  button,
+  .download-button,
+  input {
+    font-size: 0.82rem;
+  }
+
+  button,
+  .download-button {
+    padding: 0.72rem 0.82rem;
+  }
+
+  input {
+    padding: 0.74rem 0.82rem;
+  }
+}
+
+@media (max-width: 900px) {
+  .workspace-chrome {
+    grid-template-columns: 1fr;
+  }
+
+  .theme-switcher {
+    justify-content: space-between;
+  }
+
+  .workspace-switcher button,
+  .theme-switcher button {
+    flex: 1 0 auto;
+  }
+}
+
+/* qev-security-control-layout-refinement-v2
+   Fixes smashed security/control pages by overriding the old 3-column document grid
+   and giving each active tab a real app workspace layout. */
+
+.grid > .panel[data-section] {
+  display: none;
+}
+
+.shell[data-section="workspace"] .grid > .panel[data-section="workspace"],
+.shell[data-section="setup"] .grid > .panel[data-section="setup"],
+.shell[data-section="security"] .grid > .panel[data-section="security"],
+.shell[data-section="controls"] .grid > .panel[data-section="controls"],
+.shell[data-section="logs"] .grid > .panel[data-section="logs"] {
+  display: grid;
+}
+
+/* Base tab layout: one focused page, not a 3-column document. */
+.shell[data-section] .grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-auto-rows: auto;
+  align-items: stretch;
+}
+
+/* Make every section fill the available tab width. */
+.shell[data-section] .grid > .panel[data-section] {
+  grid-column: 1 / -1;
+  width: 100%;
+  min-width: 0;
+}
+
+/* Fix smashed key/value rows everywhere. */
+.kv {
+  min-width: 0;
+}
+
+.kv span,
+.kv strong {
+  min-width: 0;
+}
+
+.kv strong {
+  overflow-wrap: anywhere;
+}
+
+/* SECURITY TAB — user-first dashboard. */
+.shell[data-section="security"] .grid {
+  max-width: 1280px;
+  width: 100%;
+  justify-self: center;
+}
+
+.shell[data-section="security"] .consent-panel {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  align-content: start;
+  overflow: auto;
+}
+
+.shell[data-section="security"] .consent-panel > h2 {
+  grid-column: 1 / -1;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line-strong);
+  padding-bottom: 0.85rem;
+}
+
+/* Security status fields become cards. */
+.shell[data-section="security"] .consent-panel > .kv {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.45rem;
+  border: 1px solid var(--line);
+  background: var(--panel-soft);
+  padding: 0.9rem;
+  min-height: 86px;
+}
+
+.shell[data-section="security"] .consent-panel > .kv span {
+  font-size: 0.68rem;
+  line-height: 1.25;
+}
+
+.shell[data-section="security"] .consent-panel > .kv strong {
+  text-align: left;
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+
+/* Important actions and explanations take the full row. */
+.shell[data-section="security"] .consent-panel > .safety-actions,
+.shell[data-section="security"] .consent-panel > .safety-note,
+.shell[data-section="security"] .consent-panel > .indicator {
+  grid-column: 1 / -1;
+}
+
+.shell[data-section="security"] .consent-panel > .safety-actions {
+  border: 1px solid var(--line-strong);
+  padding: 0.85rem;
+  background: var(--panel);
+}
+
+.shell[data-section="security"] .consent-panel > .safety-actions button {
+  flex: 1 1 190px;
+}
+
+.shell[data-section="security"] .consent-panel > .safety-note {
+  border: 1px dashed var(--line);
+  background: var(--panel-soft);
+  padding: 0.9rem;
+}
+
+/* Privacy boxes sit as organized cards, not one endless vertical blob. */
+.shell[data-section="security"] .consent-panel > .privacy-box {
+  grid-column: span 3;
+  align-self: start;
+}
+
+.shell[data-section="security"] .privacy-box {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.65fr) minmax(0, 1fr);
+  gap: 0.9rem;
+  align-items: start;
+}
+
+.shell[data-section="security"] .privacy-box > h3,
+.shell[data-section="security"] .privacy-box > p,
+.shell[data-section="security"] .privacy-box > label,
+.shell[data-section="security"] .privacy-box > .button-row,
+.shell[data-section="security"] .privacy-box > .media-notes {
+  grid-column: 1;
+}
+
+.shell[data-section="security"] .privacy-box > .control-grid,
+.shell[data-section="security"] .privacy-box > .kv {
+  grid-column: 2;
+}
+
+.shell[data-section="security"] .privacy-box .control-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.shell[data-section="security"] .privacy-box .kv {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.35rem;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  padding: 0.75rem;
+}
+
+.shell[data-section="security"] .privacy-box .kv strong {
+  text-align: left;
+}
+
+/* CONTROL TAB — two clear command consoles. */
+.shell[data-section="controls"] .grid {
+  max-width: 1280px;
+  width: 100%;
+  justify-self: center;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.shell[data-section="controls"] .control-permission-panel,
+.shell[data-section="controls"] .control-legacy-panel {
+  display: grid !important;
+  grid-column: auto;
+  align-content: start;
+  overflow: auto;
+}
+
+.shell[data-section="controls"] .control-panel > h2 {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line-strong);
+  padding-bottom: 0.85rem;
+}
+
+.shell[data-section="controls"] .control-panel > p {
+  margin: 0;
+  color: var(--muted);
+  border: 1px dashed var(--line);
+  background: var(--panel-soft);
+  padding: 0.9rem;
+}
+
+.shell[data-section="controls"] .control-panel .button-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.shell[data-section="controls"] .control-panel .button-row button {
+  width: 100%;
+}
+
+.shell[data-section="controls"] .control-panel .control-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.shell[data-section="controls"] .control-panel .kv {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.35rem;
+  border: 1px solid var(--line);
+  background: var(--panel-soft);
+  padding: 0.8rem;
+}
+
+.shell[data-section="controls"] .control-panel .kv strong {
+  text-align: left;
+}
+
+.shell[data-section="controls"] .agent-command {
+  max-height: 180px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  background: var(--panel-soft);
+  padding: 0.9rem;
+}
+
+/* SETUP TAB — prevent same old skinny-column issue. */
+.shell[data-section="setup"] .grid {
+  max-width: 1180px;
+  width: 100%;
+  justify-self: center;
+  grid-template-columns: minmax(300px, 0.75fr) minmax(420px, 1.25fr);
+  gap: 14px;
+}
+
+.shell[data-section="setup"] .identity-panel,
+.shell[data-section="setup"] .session-panel {
+  grid-column: auto;
+}
+
+/* WORKSPACE TAB — give stage/chat real app proportions. */
+.shell[data-section="workspace"] .grid {
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+  gap: 14px;
+}
+
+.shell[data-section="workspace"] .remote-stage {
+  grid-column: 1;
+}
+
+.shell[data-section="workspace"] .chat-panel {
+  grid-column: 2;
+}
+
+/* LOGS TAB. */
+.shell[data-section="logs"] .grid {
+  max-width: 1180px;
+  width: 100%;
+  justify-self: center;
+}
+
+.shell[data-section="logs"] .audit-panel {
+  grid-column: 1 / -1;
+}
+
+/* Laptop / smaller browser widths: avoid squeezed columns entirely. */
+@media (max-width: 1180px) {
+  .shell {
+    width: min(100% - 28px, 1120px);
+    max-width: none;
+  }
+
+  .shell[data-section="security"] .consent-panel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .shell[data-section="security"] .consent-panel > .privacy-box {
+    grid-column: 1 / -1;
+  }
+
+  .shell[data-section="security"] .privacy-box {
+    grid-template-columns: 1fr;
+  }
+
+  .shell[data-section="security"] .privacy-box > h3,
+  .shell[data-section="security"] .privacy-box > p,
+  .shell[data-section="security"] .privacy-box > label,
+  .shell[data-section="security"] .privacy-box > .button-row,
+  .shell[data-section="security"] .privacy-box > .media-notes,
+  .shell[data-section="security"] .privacy-box > .control-grid,
+  .shell[data-section="security"] .privacy-box > .kv {
+    grid-column: 1;
+  }
+
+  .shell[data-section="controls"] .grid,
+  .shell[data-section="setup"] .grid,
+  .shell[data-section="workspace"] .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .shell[data-section="workspace"] .remote-stage,
+  .shell[data-section="workspace"] .chat-panel {
+    grid-column: 1;
+  }
+}
+
+@media (max-width: 760px) {
+  .shell[data-section="security"] .consent-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .shell[data-section="security"] .privacy-box .control-grid,
+  .shell[data-section="controls"] .control-panel .control-grid,
+  .shell[data-section="controls"] .control-panel .button-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* qev-readiness-and-audit-clarity-v1 */
+.operator-strip {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.7fr) minmax(0, 1.3fr);
+  gap: 12px;
+  align-items: stretch;
+}
+
+.next-action-card,
+.readiness-card {
+  border: 1px solid var(--line-strong);
+  background: var(--panel);
+  color: var(--text);
+  text-align: left;
+  display: grid;
+  gap: 0.38rem;
+  align-content: start;
+}
+
+.next-action-card {
+  padding: 0.9rem;
+}
+
+.next-action-card span,
+.readiness-card span {
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.66rem;
+  font-weight: 800;
+}
+
+.next-action-card strong {
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.next-action-card small,
+.readiness-card small {
+  color: var(--muted);
+  line-height: 1.45;
+  font-size: 0.76rem;
+}
+
+.readiness-strip {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
+}
+
+.readiness-card {
+  min-width: 0;
+  padding: 0.75rem;
+  border-color: var(--line);
+}
+
+.readiness-card strong {
+  font-size: 0.88rem;
+  line-height: 1.2;
+}
+
+.readiness-card.ready {
+  border-color: var(--line-strong);
+}
+
+.readiness-card.action {
+  border-style: solid;
+  background: var(--panel-soft);
+}
+
+.readiness-card.waiting {
+  border-style: dashed;
+}
+
+.readiness-card.blocked {
+  border-style: double;
+}
+
+@media (min-width: 1180px) {
+  .shell {
+    grid-template-rows: auto auto auto minmax(0, 1fr);
+  }
+
+  .operator-strip {
+    min-height: 92px;
+  }
+}
+
+@media (max-width: 1180px) {
+  .operator-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .readiness-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .readiness-strip {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* qev-setup-overlap-fix-v1
+   Smoke test found .session-panel intercepting clicks over .identity-panel.
+   This hard-resets the Setup tab grid placement so panels cannot overlap. */
+
+.shell[data-section="setup"] .grid {
+  position: relative;
+  display: grid !important;
+  grid-template-columns: minmax(320px, 0.75fr) minmax(460px, 1.25fr) !important;
+  grid-template-rows: minmax(0, 1fr) !important;
+  grid-template-areas: "identity session" !important;
+  align-items: stretch;
+  gap: 14px;
+  overflow: hidden;
+}
+
+.shell[data-section="setup"] .identity-panel {
+  grid-area: identity !important;
+  grid-column: 1 / 2 !important;
+  grid-row: 1 / 2 !important;
+  position: relative;
+  z-index: 2;
+  min-width: 0;
+  pointer-events: auto;
+}
+
+.shell[data-section="setup"] .session-panel {
+  grid-area: session !important;
+  grid-column: 2 / 3 !important;
+  grid-row: 1 / 2 !important;
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  pointer-events: auto;
+}
+
+.shell[data-section="setup"] .session-panel .control-grid,
+.shell[data-section="setup"] .identity-panel .control-grid {
+  max-width: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 1180px) {
+  .shell[data-section="setup"] .grid {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: auto auto !important;
+    grid-template-areas:
+      "identity"
+      "session" !important;
+    overflow: visible;
+  }
+
+  .shell[data-section="setup"] .identity-panel,
+  .shell[data-section="setup"] .session-panel {
+    grid-column: 1 / -1 !important;
+    grid-row: auto !important;
+  }
+}
+
+/* qev-slack-clean-pass-v1
+   Goal: turn QEV from a scattered card dashboard into a cleaner workspace shell.
+   This is CSS-only so it does not disturb the passing crypto/relay/WebRTC tests. */
+
+:root {
+  --qev-app-bg: #111214;
+  --qev-surface-0: #16181b;
+  --qev-surface-1: #1b1d21;
+  --qev-surface-2: #22252a;
+  --qev-border-soft: rgba(255, 255, 255, 0.08);
+  --qev-border-strong: rgba(255, 255, 255, 0.14);
+  --qev-text-main: #f3f4f6;
+  --qev-text-muted: #a7abb3;
+  --qev-text-soft: #777d87;
+  --qev-accent: #d7ff5f;
+  --qev-danger: #ff6363;
+  --qev-radius-sm: 8px;
+  --qev-radius-md: 12px;
+  --qev-radius-lg: 16px;
+}
+
+body {
+  background: #08090a !important;
+}
+
+.shell {
+  min-height: 100vh;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 18px 18px 18px 88px !important;
+  background:
+    radial-gradient(circle at top left, rgba(215, 255, 95, 0.045), transparent 320px),
+    var(--qev-app-bg) !important;
+  color: var(--qev-text-main);
+}
+
+/* Slim app rail like a real workspace product. */
+.shell::before {
+  content: "Q";
+  position: fixed;
+  left: 18px;
+  top: 18px;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: var(--qev-surface-2);
+  border: 1px solid var(--qev-border-strong);
+  color: var(--qev-accent);
+  font-weight: 900;
+  font-size: 24px;
+  z-index: 50;
+}
+
+.shell::after {
+  content: "";
+  position: fixed;
+  left: 18px;
+  top: 78px;
+  bottom: 18px;
+  width: 48px;
+  border-radius: 16px;
+  background:
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.06), transparent),
+    var(--qev-surface-0);
+  border: 1px solid var(--qev-border-soft);
+  z-index: 1;
+}
+
+.hero {
+  min-height: 64px !important;
+  padding: 12px 14px !important;
+  margin-bottom: 10px !important;
+  border-radius: var(--qev-radius-lg) !important;
+  background: var(--qev-surface-0) !important;
+  border: 1px solid var(--qev-border-soft) !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 260px !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+
+.hero h1 {
+  margin: 0 !important;
+  font-size: 18px !important;
+  line-height: 1.2 !important;
+  letter-spacing: -0.02em !important;
+}
+
+.hero .lede {
+  display: none !important;
+}
+
+.eyebrow {
+  margin-bottom: 4px !important;
+  color: var(--qev-text-soft) !important;
+  letter-spacing: 0.08em !important;
+}
+
+.safety-line {
+  margin-top: 6px !important;
+  color: var(--qev-text-muted) !important;
+  font-size: 12px !important;
+}
+
+.status-card {
+  border-radius: var(--qev-radius-md) !important;
+  background: var(--qev-surface-1) !important;
+  border: 1px solid var(--qev-border-soft) !important;
+  padding: 10px 12px !important;
+}
+
+.workspace-chrome {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  margin-bottom: 10px !important;
+  padding: 8px !important;
+  border-radius: var(--qev-radius-lg) !important;
+  background: rgba(22, 24, 27, 0.92) !important;
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--qev-border-soft) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 10px !important;
+}
+
+.workspace-switcher,
+.theme-switcher {
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+  gap: 4px !important;
+}
+
+.workspace-switcher button,
+.theme-switcher button {
+  border: 0 !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  color: var(--qev-text-muted) !important;
+  padding: 8px 10px !important;
+  font-size: 13px !important;
+  font-weight: 650 !important;
+}
+
+.workspace-switcher button:hover,
+.theme-switcher button:hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: var(--qev-text-main) !important;
+}
+
+.workspace-switcher button.active,
+.theme-switcher button.active {
+  background: var(--qev-surface-2) !important;
+  color: var(--qev-text-main) !important;
+  box-shadow: inset 0 0 0 1px var(--qev-border-soft) !important;
+}
+
+.operator-strip,
+.download-strip {
+  border-radius: var(--qev-radius-lg) !important;
+  background: var(--qev-surface-0) !important;
+  border: 1px solid var(--qev-border-soft) !important;
+  margin-bottom: 10px !important;
+}
+
+.download-strip {
+  display: none !important;
+}
+
+/* Main content should feel like one app pane, not a pile of cards. */
+.grid {
+  gap: 10px !important;
+  align-items: stretch !important;
+}
+
+.panel {
+  border-radius: var(--qev-radius-lg) !important;
+  background: var(--qev-surface-0) !important;
+  border: 1px solid var(--qev-border-soft) !important;
+  box-shadow: none !important;
+  padding: 14px !important;
+}
+
+.panel h2 {
+  margin: 0 0 12px !important;
+  font-size: 15px !important;
+  letter-spacing: -0.01em !important;
+}
+
+.panel label {
+  color: var(--qev-text-muted) !important;
+  font-size: 12px !important;
+}
+
+input,
+textarea,
+select {
+  border-radius: 10px !important;
+  background: #0f1012 !important;
+  border: 1px solid var(--qev-border-soft) !important;
+  color: var(--qev-text-main) !important;
+  box-shadow: none !important;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: rgba(215, 255, 95, 0.45) !important;
+  outline: none !important;
+  box-shadow: 0 0 0 3px rgba(215, 255, 95, 0.08) !important;
+}
+
+button,
+.button,
+.download-button {
+  border-radius: 10px !important;
+  border: 1px solid var(--qev-border-soft) !important;
+  background: var(--qev-surface-2) !important;
+  color: var(--qev-text-main) !important;
+  box-shadow: none !important;
+  font-weight: 700 !important;
+}
+
+button:hover,
+.button:hover,
+.download-button:hover {
+  border-color: var(--qev-border-strong) !important;
+  background: #292d33 !important;
+}
+
+button.danger,
+.danger {
+  color: #ffd6d6 !important;
+  border-color: rgba(255, 99, 99, 0.22) !important;
+  background: rgba(255, 99, 99, 0.08) !important;
+}
+
+button.secondary,
+.secondary {
+  color: var(--qev-text-muted) !important;
+  background: transparent !important;
+}
+
+.kv {
+  background: #121417 !important;
+  border: 1px solid var(--qev-border-soft) !important;
+  border-radius: 10px !important;
+  padding: 9px 10px !important;
+}
+
+.kv span {
+  color: var(--qev-text-soft) !important;
+  font-size: 11px !important;
+}
+
+.kv strong {
+  color: var(--qev-text-main) !important;
+  font-size: 12px !important;
+}
+
+.mono,
+code,
+pre {
+  color: #cfd3dc !important;
+}
+
+.audit-list,
+.chat-list,
+.timeline,
+.log-list {
+  background: #0f1012 !important;
+  border-radius: var(--qev-radius-md) !important;
+  border: 1px solid var(--qev-border-soft) !important;
+}
+
+/* Workspace/video area should feel like the main channel content. */
+.workspace-panel,
+.remote-panel,
+.local-panel,
+.screen-panel,
+.video-panel {
+  min-height: 360px;
+}
+
+video,
+canvas {
+  border-radius: var(--qev-radius-md) !important;
+  background: #050607 !important;
+  border: 1px solid var(--qev-border-soft) !important;
+}
+
+.error {
+  border-radius: var(--qev-radius-md) !important;
+  background: rgba(255, 99, 99, 0.08) !important;
+  border: 1px solid rgba(255, 99, 99, 0.25) !important;
+  color: #ffd6d6 !important;
+}
+
+@media (max-width: 900px) {
+  .shell {
+    padding: 12px !important;
+  }
+
+  .shell::before,
+  .shell::after {
+    display: none;
+  }
+
+  .hero {
+    grid-template-columns: 1fr !important;
+  }
+
+  .workspace-chrome {
+    position: static;
+    align-items: stretch !important;
+    flex-direction: column !important;
+  }
+
+  .workspace-switcher,
+  .theme-switcher {
+    overflow-x: auto;
+    flex-wrap: nowrap !important;
+  }
+}
+
+/* qev-slack-clean-pass-v1
+   Goal: turn QEV from a scattered card dashboard into a cleaner workspace shell.
+   This is CSS-only so it does not disturb the passing crypto/relay/WebRTC tests. */
+
+:root {
+  --qev-app-bg: #111214;
+  --qev-surface-0: #16181b;
+  --qev-surface-1: #1b1d21;
+  --qev-surface-2: #22252a;
+  --qev-border-soft: rgba(255, 255, 255, 0.08);
+  --qev-border-strong: rgba(255, 255, 255, 0.14);
+  --qev-text-main: #f3f4f6;
+  --qev-text-muted: #a7abb3;
+  --qev-text-soft: #777d87;
+  --qev-accent: #d7ff5f;
+  --qev-danger: #ff6363;
+  --qev-radius-sm: 8px;
+  --qev-radius-md: 12px;
+  --qev-radius-lg: 16px;
+}
+
+body {
+  background: #08090a !important;
+}
+
+.shell {
+  min-height: 100vh;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 18px 18px 18px 88px !important;
+  background:
+    radial-gradient(circle at top left, rgba(215, 255, 95, 0.045), transparent 320px),
+    var(--qev-app-bg) !important;
+  color: var(--qev-text-main);
+}
+
+/* Slim app rail like a real workspace product. */
+.shell::before {
+  content: "Q";
+  position: fixed;
+  left: 18px;
+  top: 18px;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: var(--qev-surface-2);
+  border: 1px solid var(--qev-border-strong);
+  color: var(--qev-accent);
+  font-weight: 900;
+  font-size: 24px;
+  z-index: 50;
+}
+
+.shell::after {
+  content: "";
+  position: fixed;
+  left: 18px;
+  top: 78px;
+  bottom: 18px;
+  width: 48px;
+  border-radius: 16px;
+  background:
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.06), transparent),
+    var(--qev-surface-0);
+  border: 1px solid var(--qev-border-soft);
+  z-index: 1;
+}
+
+.hero {
+  min-height: 64px !important;
+  padding: 12px 14px !important;
+  margin-bottom: 10px !important;
+  border-radius: var(--qev-radius-lg) !important;
+  background: var(--qev-surface-0) !important;
+  border: 1px solid var(--qev-border-soft) !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 260px !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+
+.hero h1 {
+  margin: 0 !important;
+  font-size: 18px !important;
+  line-height: 1.2 !important;
+  letter-spacing: -0.02em !important;
+}
+
+.hero .lede {
+  display: none !important;
+}
+
+.eyebrow {
+  margin-bottom: 4px !important;
+  color: var(--qev-text-soft) !important;
+  letter-spacing: 0.08em !important;
+}
+
+.safety-line {
+  margin-top: 6px !important;
+  color: var(--qev-text-muted) !important;
+  font-size: 12px !important;
+}
+
+.status-card {
+  border-radius: var(--qev-radius-md) !important;
+  background: var(--qev-surface-1) !important;
+  border: 1px solid var(--qev-border-soft) !important;
+  padding: 10px 12px !important;
+}
+
+.workspace-chrome {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  margin-bottom: 10px !important;
+  padding: 8px !important;
+  border-radius: var(--qev-radius-lg) !important;
+  background: rgba(22, 24, 27, 0.92) !important;
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--qev-border-soft) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 10px !important;
+}
+
+.workspace-switcher,
+.theme-switcher {
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+  gap: 4px !important;
+}
+
+.workspace-switcher button,
+.theme-switcher button {
+  border: 0 !important;
+  border-radius: 8px !important;
+  background: transparent !important;
+  color: var(--qev-text-muted) !important;
+  padding: 8px 10px !important;
+  font-size: 13px !important;
+  font-weight: 650 !important;
+}
+
+.workspace-switcher button:hover,
+.theme-switcher button:hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: var(--qev-text-main) !important;
+}
+
+.workspace-switcher button.active,
+.theme-switcher button.active {
+  background: var(--qev-surface-2) !important;
+  color: var(--qev-text-main) !important;
+  box-shadow: inset 0 0 0 1px var(--qev-border-soft) !important;
+}
+
+.operator-strip,
+.download-strip {
+  border-radius: var(--qev-radius-lg) !important;
+  background: var(--qev-surface-0) !important;
+  border: 1px solid var(--qev-border-soft) !important;
+  margin-bottom: 10px !important;
+}
+
+.download-strip {
+  display: none !important;
+}
+
+/* Main content should feel like one app pane, not a pile of cards. */
+.grid {
+  gap: 10px !important;
+  align-items: stretch !important;
+}
+
+.panel {
+  border-radius: var(--qev-radius-lg) !important;
+  background: var(--qev-surface-0) !important;
+  border: 1px solid var(--qev-border-soft) !important;
+  box-shadow: none !important;
+  padding: 14px !important;
+}
+
+.panel h2 {
+  margin: 0 0 12px !important;
+  font-size: 15px !important;
+  letter-spacing: -0.01em !important;
+}
+
+.panel label {
+  color: var(--qev-text-muted) !important;
+  font-size: 12px !important;
+}
+
+input,
+textarea,
+select {
+  border-radius: 10px !important;
+  background: #0f1012 !important;
+  border: 1px solid var(--qev-border-soft) !important;
+  color: var(--qev-text-main) !important;
+  box-shadow: none !important;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: rgba(215, 255, 95, 0.45) !important;
+  outline: none !important;
+  box-shadow: 0 0 0 3px rgba(215, 255, 95, 0.08) !important;
+}
+
+button,
+.button,
+.download-button {
+  border-radius: 10px !important;
+  border: 1px solid var(--qev-border-soft) !important;
+  background: var(--qev-surface-2) !important;
+  color: var(--qev-text-main) !important;
+  box-shadow: none !important;
+  font-weight: 700 !important;
+}
+
+button:hover,
+.button:hover,
+.download-button:hover {
+  border-color: var(--qev-border-strong) !important;
+  background: #292d33 !important;
+}
+
+button.danger,
+.danger {
+  color: #ffd6d6 !important;
+  border-color: rgba(255, 99, 99, 0.22) !important;
+  background: rgba(255, 99, 99, 0.08) !important;
+}
+
+button.secondary,
+.secondary {
+  color: var(--qev-text-muted) !important;
+  background: transparent !important;
+}
+
+.kv {
+  background: #121417 !important;
+  border: 1px solid var(--qev-border-soft) !important;
+  border-radius: 10px !important;
+  padding: 9px 10px !important;
+}
+
+.kv span {
+  color: var(--qev-text-soft) !important;
+  font-size: 11px !important;
+}
+
+.kv strong {
+  color: var(--qev-text-main) !important;
+  font-size: 12px !important;
+}
+
+.mono,
+code,
+pre {
+  color: #cfd3dc !important;
+}
+
+.audit-list,
+.chat-list,
+.timeline,
+.log-list {
+  background: #0f1012 !important;
+  border-radius: var(--qev-radius-md) !important;
+  border: 1px solid var(--qev-border-soft) !important;
+}
+
+/* Workspace/video area should feel like the main channel content. */
+.workspace-panel,
+.remote-panel,
+.local-panel,
+.screen-panel,
+.video-panel {
+  min-height: 360px;
+}
+
+video,
+canvas {
+  border-radius: var(--qev-radius-md) !important;
+  background: #050607 !important;
+  border: 1px solid var(--qev-border-soft) !important;
+}
+
+.error {
+  border-radius: var(--qev-radius-md) !important;
+  background: rgba(255, 99, 99, 0.08) !important;
+  border: 1px solid rgba(255, 99, 99, 0.25) !important;
+  color: #ffd6d6 !important;
+}
+
+@media (max-width: 900px) {
+  .shell {
+    padding: 12px !important;
+  }
+
+  .shell::before,
+  .shell::after {
+    display: none;
+  }
+
+  .hero {
+    grid-template-columns: 1fr !important;
+  }
+
+  .workspace-chrome {
+    position: static;
+    align-items: stretch !important;
+    flex-direction: column !important;
+  }
+
+  .workspace-switcher,
+  .theme-switcher {
+    overflow-x: auto;
+    flex-wrap: nowrap !important;
+  }
+}
+
+/* qev-functional-left-rail-v1
+   Turn the decorative left strip into the actual app navigation rail. */
+
+.shell {
+  padding-left: 104px !important;
+}
+
+.shell::before {
+  left: 20px !important;
+  top: 18px !important;
+  width: 50px !important;
+  height: 50px !important;
+  z-index: 80 !important;
+}
+
+.shell::after {
+  left: 20px !important;
+  top: 82px !important;
+  bottom: 18px !important;
+  width: 50px !important;
+  z-index: 40 !important;
+}
+
+/* Top chrome becomes theme/status chrome only. */
+.workspace-chrome {
+  justify-content: flex-end !important;
+  min-height: 46px !important;
+}
+
+/* Real sidebar navigation. */
+.workspace-switcher {
+  position: fixed !important;
+  left: 20px !important;
+  top: 96px !important;
+  bottom: 36px !important;
+  width: 50px !important;
+  z-index: 90 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 8px !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  overflow: visible !important;
+}
+
+.workspace-switcher button {
+  position: relative !important;
+  width: 42px !important;
+  height: 42px !important;
+  min-width: 42px !important;
+  padding: 0 !important;
+  border-radius: 13px !important;
+  display: grid !important;
+  place-items: center !important;
+  font-size: 0 !important;
+  color: var(--qev-text-muted) !important;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+}
+
+.workspace-switcher button::before {
+  font-size: 15px !important;
+  line-height: 1 !important;
+  font-weight: 900 !important;
+  color: currentColor !important;
+}
+
+.workspace-switcher button:nth-child(1)::before {
+  content: "W";
+}
+
+.workspace-switcher button:nth-child(2)::before {
+  content: "S";
+}
+
+.workspace-switcher button:nth-child(3)::before {
+  content: "K";
+}
+
+.workspace-switcher button:nth-child(4)::before {
+  content: "C";
+}
+
+.workspace-switcher button:nth-child(5)::before {
+  content: "L";
+}
+
+.workspace-switcher button::after {
+  content: attr(aria-label);
+}
+
+/* Tooltip labels using actual button text through per-section mapping. */
+.workspace-switcher button:nth-child(1):hover::after {
+  content: "Workspace";
+}
+
+.workspace-switcher button:nth-child(2):hover::after {
+  content: "Setup";
+}
+
+.workspace-switcher button:nth-child(3):hover::after {
+  content: "Security";
+}
+
+.workspace-switcher button:nth-child(4):hover::after {
+  content: "Control";
+}
+
+.workspace-switcher button:nth-child(5):hover::after {
+  content: "Logs";
+}
+
+.workspace-switcher button:hover::after {
+  position: absolute;
+  left: 52px;
+  top: 50%;
+  transform: translateY(-50%);
+  min-width: max-content;
+  padding: 7px 9px;
+  border-radius: 8px;
+  background: #202329;
+  border: 1px solid var(--qev-border-strong);
+  color: var(--qev-text-main);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+  pointer-events: none;
+}
+
+.workspace-switcher button:hover {
+  background: rgba(255, 255, 255, 0.07) !important;
+  color: var(--qev-text-main) !important;
+}
+
+.workspace-switcher button.active {
+  background: rgba(215, 255, 95, 0.13) !important;
+  border-color: rgba(215, 255, 95, 0.28) !important;
+  color: var(--qev-accent) !important;
+}
+
+.workspace-switcher button.active::after {
+  content: "";
+  position: absolute;
+  right: -8px;
+  top: 11px;
+  width: 3px;
+  height: 20px;
+  border-radius: 99px;
+  background: var(--qev-accent);
+  box-shadow: 0 0 18px rgba(215, 255, 95, 0.35);
+}
+
+/* Small system indicators at bottom of rail. */
+.workspace-switcher::after {
+  content: "LIVE\A QEV\A E2E";
+  white-space: pre;
+  margin-top: auto;
+  width: 42px;
+  padding: 8px 0;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  background: rgba(215, 255, 95, 0.08);
+  border: 1px solid rgba(215, 255, 95, 0.16);
+  color: var(--qev-accent);
+  font-size: 8px;
+  line-height: 1.35;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+/* Make the main body use the reclaimed top space better. */
+.operator-strip {
+  margin-top: 0 !important;
+}
+
+.readiness-strip {
+  grid-template-columns: repeat(5, minmax(120px, 1fr)) !important;
+}
+
+.next-action-card,
+.readiness-card {
+  min-height: 86px !important;
+}
+
+/* Keep mobile sane: rail becomes normal top nav again. */
+@media (max-width: 900px) {
+  .shell {
+    padding-left: 12px !important;
+  }
+
+  .workspace-chrome {
+    justify-content: stretch !important;
+  }
+
+  .workspace-switcher {
+    position: static !important;
+    width: auto !important;
+    height: auto !important;
+    flex-direction: row !important;
+    justify-content: flex-start !important;
+    overflow-x: auto !important;
+  }
+
+  .workspace-switcher button {
+    width: auto !important;
+    min-width: 72px !important;
+    height: 38px !important;
+    padding: 0 10px !important;
+    font-size: 11px !important;
+  }
+
+  .workspace-switcher button::before,
+  .workspace-switcher button::after {
+    content: none !important;
+  }
+}
+
+/* qev-pragmatic-layout-reset-v1
+   Replace the decorative faux rail with a real readable workspace sidebar.
+   This intentionally overrides qev-slack-clean-pass-v1 and qev-functional-left-rail-v1. */
+
+.shell {
+  max-width: none !important;
+  min-height: 100vh !important;
+  margin: 0 !important;
+  padding: 16px 16px 16px 288px !important;
+  background: #101114 !important;
+  color: #f4f5f6 !important;
+}
+
+.shell::before,
+.shell::after,
+.workspace-switcher::after {
+  display: none !important;
+  content: none !important;
+}
+
+/* Real product sidebar. */
+.workspace-chrome {
+  position: fixed !important;
+  left: 16px !important;
+  top: 16px !important;
+  bottom: 16px !important;
+  width: 248px !important;
+  z-index: 80 !important;
+
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  justify-content: flex-start !important;
+  gap: 16px !important;
+
+  padding: 14px !important;
+  margin: 0 !important;
+  border-radius: 18px !important;
+  background: #191b20 !important;
+  border: 1px solid rgba(255, 255, 255, 0.09) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+.workspace-chrome::before {
+  content: "QEV Workspace";
+  display: block;
+  padding: 8px 8px 12px;
+  color: #f4f5f6;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.workspace-chrome::after {
+  content: "Live smoke: passing\AEncrypted proof: passing\AAccess: consent-only";
+  white-space: pre-line;
+  display: block;
+  margin-top: auto;
+  padding: 12px;
+  border-radius: 12px;
+  background: #111216;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #aeb3bd;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+/* Readable nav. */
+.workspace-switcher {
+  position: static !important;
+  inset: auto !important;
+  width: 100% !important;
+  height: auto !important;
+
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  justify-content: flex-start !important;
+  gap: 6px !important;
+
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  overflow: visible !important;
+}
+
+.workspace-switcher button {
+  width: 100% !important;
+  height: 38px !important;
+  min-width: 0 !important;
+  padding: 0 12px !important;
+
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 10px !important;
+
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+
+  border-radius: 10px !important;
+  border: 1px solid transparent !important;
+  background: transparent !important;
+  color: #aeb3bd !important;
+}
+
+.workspace-switcher button::before,
+.workspace-switcher button::after {
+  content: none !important;
+  display: none !important;
+}
+
+.workspace-switcher button:hover {
+  background: rgba(255, 255, 255, 0.055) !important;
+  color: #f4f5f6 !important;
+}
+
+.workspace-switcher button.active {
+  background: #24272e !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+/* Theme controls belong in the sidebar footer. */
+.theme-switcher {
+  margin-top: auto !important;
+  padding-top: 12px !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+
+  display: grid !important;
+  grid-template-columns: 1fr 1fr 1fr !important;
+  gap: 6px !important;
+
+  background: transparent !important;
+  border-left: 0 !important;
+  border-right: 0 !important;
+  border-bottom: 0 !important;
+}
+
+.theme-switcher span {
+  grid-column: 1 / -1;
+  color: #7d838d !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.theme-switcher button {
+  width: 100% !important;
+  height: 30px !important;
+  padding: 0 !important;
+  font-size: 10px !important;
+  border-radius: 8px !important;
+}
+
+/* Main header becomes compact and useful. */
+.hero {
+  min-height: 78px !important;
+  margin: 0 0 12px !important;
+  padding: 14px 16px !important;
+  border-radius: 18px !important;
+  background: #191b20 !important;
+  border: 1px solid rgba(255, 255, 255, 0.09) !important;
+
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) 260px !important;
+  gap: 12px !important;
+  align-items: center !important;
+}
+
+.hero h1 {
+  margin: 0 !important;
+  font-size: 20px !important;
+  line-height: 1.2 !important;
+  letter-spacing: -0.025em !important;
+}
+
+.hero .lede {
+  display: block !important;
+  margin: 4px 0 0 !important;
+  max-width: 820px !important;
+  color: #9aa0aa !important;
+  font-size: 13px !important;
+  line-height: 1.45 !important;
+}
+
+.safety-line {
+  display: none !important;
+}
+
+.status-card {
+  min-width: 0 !important;
+  padding: 12px !important;
+  border-radius: 14px !important;
+  background: #111216 !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+.status-card span {
+  color: #7d838d !important;
+  font-size: 11px !important;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.status-card strong {
+  font-size: 20px !important;
+}
+
+.status-card small {
+  display: block;
+  overflow-wrap: anywhere;
+  color: #8d939d !important;
+  font-size: 11px !important;
+}
+
+/* Status row: useful, compact, not shouting. */
+.operator-strip {
+  margin: 0 0 12px !important;
+  padding: 0 !important;
+  display: grid !important;
+  grid-template-columns: 1.35fr 2fr !important;
+  gap: 8px !important;
+  background: transparent !important;
+  border: 0 !important;
+}
+
+.next-action-card,
+.readiness-card {
+  min-height: 76px !important;
+  padding: 12px !important;
+  border-radius: 14px !important;
+  background: #191b20 !important;
+  border: 1px solid rgba(255, 255, 255, 0.09) !important;
+  box-shadow: none !important;
+}
+
+.next-action-card span,
+.readiness-card span {
+  color: #7d838d !important;
+  font-size: 10px !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase;
+}
+
+.next-action-card strong,
+.readiness-card strong {
+  margin-top: 4px !important;
+  font-size: 13px !important;
+  line-height: 1.2 !important;
+  color: #f4f5f6 !important;
+}
+
+.next-action-card small,
+.readiness-card small {
+  margin-top: 4px !important;
+  font-size: 11px !important;
+  line-height: 1.35 !important;
+  color: #9aa0aa !important;
+}
+
+.readiness-strip {
+  display: grid !important;
+  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+}
+
+/* Content panels. */
+.grid {
+  display: grid !important;
+  gap: 12px !important;
+}
+
+.panel {
+  border-radius: 18px !important;
+  background: #191b20 !important;
+  border: 1px solid rgba(255, 255, 255, 0.09) !important;
+  box-shadow: none !important;
+  padding: 16px !important;
+}
+
+.panel h2 {
+  margin: 0 0 14px !important;
+  font-size: 14px !important;
+  font-weight: 900 !important;
+  letter-spacing: -0.01em !important;
+}
+
+.remote-panel,
+.screen-panel,
+.workspace-panel {
+  min-height: calc(100vh - 252px) !important;
+}
+
+.remote-panel video,
+.remote-panel canvas,
+.screen-panel video,
+.screen-panel canvas {
+  min-height: calc(100vh - 330px) !important;
+}
+
+/* Kill the awkward local preview covering the main screen. */
+.local-panel,
+.local-media-panel {
+  max-width: 320px !important;
+}
+
+.shell[data-section="workspace"] .local-panel,
+.shell[data-section="workspace"] .local-media-panel {
+  position: absolute !important;
+  right: 28px !important;
+  bottom: 28px !important;
+  width: 320px !important;
+  min-height: 170px !important;
+  z-index: 20 !important;
+}
+
+/* Inputs/buttons: quieter. */
+input,
+textarea,
+select {
+  background: #111216 !important;
+  border: 1px solid rgba(255, 255, 255, 0.09) !important;
+  color: #f4f5f6 !important;
+  border-radius: 10px !important;
+}
+
+button {
+  border-radius: 10px !important;
+  box-shadow: none !important;
+}
+
+/* Responsive: stack cleanly. */
+@media (max-width: 1000px) {
+  .shell {
+    padding: 12px !important;
+  }
+
+  .workspace-chrome {
+    position: static !important;
+    width: auto !important;
+    margin-bottom: 12px !important;
+  }
+
+  .workspace-switcher {
+    display: grid !important;
+    grid-template-columns: repeat(5, 1fr) !important;
+  }
+
+  .operator-strip,
+  .hero {
+    grid-template-columns: 1fr !important;
+  }
+
+  .readiness-strip {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  .shell[data-section="workspace"] .local-panel,
+  .shell[data-section="workspace"] .local-media-panel {
+    position: static !important;
+    width: auto !important;
+    max-width: none !important;
+  }
+}
+
+/* qev-de-stack-pass-v1
+   Fix cramped readiness cards, oversized local preview, and fake sidebar footer. */
+
+.workspace-chrome::after {
+  content: none !important;
+  display: none !important;
+}
+
+/* Sidebar: less dead space, cleaner theme footer. */
+.workspace-chrome {
+  gap: 12px !important;
+}
+
+.theme-switcher {
+  margin-top: auto !important;
+}
+
+/* Header: reduce height and visual noise. */
+.hero {
+  min-height: 68px !important;
+  padding: 12px 14px !important;
+  grid-template-columns: minmax(0, 1fr) 220px !important;
+}
+
+.hero h1 {
+  font-size: 18px !important;
+}
+
+.hero .lede {
+  font-size: 12px !important;
+  line-height: 1.35 !important;
+  max-width: 760px !important;
+}
+
+.status-card {
+  padding: 10px !important;
+}
+
+.status-card strong {
+  font-size: 18px !important;
+}
+
+.status-card small {
+  font-size: 10px !important;
+}
+
+/* Status/readiness: stop narrow card text stacking. */
+.operator-strip {
+  grid-template-columns: minmax(300px, 0.8fr) minmax(0, 1.2fr) !important;
+  align-items: stretch !important;
+}
+
+.next-action-card {
+  min-height: 72px !important;
+}
+
+.readiness-strip {
+  display: grid !important;
+  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+}
+
+.readiness-card {
+  min-height: 72px !important;
+  padding: 11px 10px !important;
+  overflow: hidden !important;
+}
+
+.readiness-card span {
+  font-size: 9px !important;
+  line-height: 1 !important;
+}
+
+.readiness-card strong {
+  font-size: 12px !important;
+  line-height: 1.15 !important;
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+}
+
+.readiness-card small {
+  display: none !important;
+}
+
+.next-action-card small {
+  max-width: 95% !important;
+}
+
+/* Main workspace: make remote screen dominant. */
+.shell[data-section="workspace"] .grid {
+  position: relative !important;
+}
+
+.shell[data-section="workspace"] .remote-panel,
+.shell[data-section="workspace"] .screen-panel,
+.shell[data-section="workspace"] .workspace-panel {
+  min-height: calc(100vh - 240px) !important;
+}
+
+.shell[data-section="workspace"] .remote-panel video,
+.shell[data-section="workspace"] .remote-panel canvas,
+.shell[data-section="workspace"] .screen-panel video,
+.shell[data-section="workspace"] .screen-panel canvas {
+  min-height: calc(100vh - 315px) !important;
+}
+
+/* Local camera becomes a true picture-in-picture card. */
+.shell[data-section="workspace"] .local-panel,
+.shell[data-section="workspace"] .local-media-panel {
+  position: absolute !important;
+  right: 26px !important;
+  bottom: 26px !important;
+  width: 260px !important;
+  min-height: 148px !important;
+  max-width: 260px !important;
+  padding: 10px !important;
+  border-radius: 14px !important;
+  z-index: 30 !important;
+  background: #17191e !important;
+}
+
+.shell[data-section="workspace"] .local-panel h2,
+.shell[data-section="workspace"] .local-media-panel h2 {
+  font-size: 11px !important;
+  margin-bottom: 8px !important;
+}
+
+.shell[data-section="workspace"] .local-panel video,
+.shell[data-section="workspace"] .local-panel canvas,
+.shell[data-section="workspace"] .local-media-panel video,
+.shell[data-section="workspace"] .local-media-panel canvas {
+  min-height: 96px !important;
+  height: 96px !important;
+  max-height: 96px !important;
+}
+
+.shell[data-section="workspace"] .local-panel p,
+.shell[data-section="workspace"] .local-media-panel p {
+  font-size: 10px !important;
+  line-height: 1.25 !important;
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+}
+
+/* Prevent huge empty vertical feel on desktop. */
+.panel {
+  overflow: hidden !important;
+}
+
+/* Wider screens can carry status cards without wrapping. */
+@media (min-width: 1400px) {
+  .readiness-card strong {
+    font-size: 13px !important;
+  }
+
+  .readiness-card span {
+    font-size: 10px !important;
+  }
+}
+
+/* Medium screens: wrap readiness into useful rows instead of crushing text. */
+@media (max-width: 1250px) {
+  .operator-strip {
+    grid-template-columns: 1fr !important;
+  }
+
+  .readiness-strip {
+    grid-template-columns: repeat(5, minmax(110px, 1fr)) !important;
+  }
+}
