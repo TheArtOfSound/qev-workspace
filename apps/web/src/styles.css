@@ -584,3 +584,8 @@ pre {
   min-height: 280px;
   object-fit: cover;
 }
+
+.session-lock-note {
+  color: var(--muted);
+  font-size: 0.82rem;
+}

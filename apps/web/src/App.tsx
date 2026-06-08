@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type MouseEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import {
   BrowserQevVaultAdapter,
   decryptJson,
@@ -31,6 +31,7 @@ type PrivateChatPayload = {
   body: string;
   sender: string;
   sentAt: string;
+  roomLockHash?: string | null;
 };
 
 type ChatEntry = PrivateChatPayload & {
@@ -51,7 +52,13 @@ export function App() {
   const [peerDevice, setPeerDevice] = useState<DeviceIdentityPublic | null>(null);
   const [sessionKey, setSessionKey] = useState<CryptoKey | null>(null);
 
-  const [roomCode, setRoomCode] = useState("");
+  const [roomCode, setRoomCode] = useState(() => {
+    if (typeof window === "undefined") return "";
+    return new URLSearchParams(window.location.search).get("room")?.toUpperCase() ?? "";
+  });
+  const [roomPassphrase, setRoomPassphrase] = useState("");
+  const [roomLockFingerprint, setRoomLockFingerprint] = useState("not set");
+  const [inviteCopied, setInviteCopied] = useState(false);
   const [sessionId, setSessionId] = useState("");
   const [relayStatus, setRelayStatus] = useState<SignalingStatus>("idle");
   const [sessionStatus, setSessionStatus] = useState<SessionStatus>("none");
@@ -83,6 +90,19 @@ export function App() {
   const agentLaunchUrl = controlGrant ? buildAgentLaunchUrl(controlGrant) : "";
   const hasActiveViewerGrant = Boolean(viewerGrant && new Date(viewerGrant.expiresAt).getTime() > Date.now());
   const hasActiveHostGrant = Boolean(hostGrant && new Date(hostGrant.expiresAt).getTime() > Date.now());
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void computeRoomLockHash(roomCode, roomPassphrase).then((hash) => {
+      if (cancelled) return;
+      setRoomLockFingerprint(hash ? formatRoomLockFingerprint(hash) : "not set");
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [roomCode, roomPassphrase]);
 
   async function ensureDevice(): Promise<DeviceIdentity> {
     const existing = device ?? (await vault.loadDeviceIdentity());
@@ -266,12 +286,33 @@ export function App() {
     addAudit("Local device identity reset.");
   }
 
+  async function copyInviteLink(): Promise<void> {
+    await safe(async () => {
+      if (!roomCode) throw new Error("Create or join a room before copying an invite link.");
+
+      const url = new URL(window.location.href);
+      url.searchParams.set("room", roomCode);
+      url.hash = "";
+
+      await navigator.clipboard.writeText(url.toString());
+      setInviteCopied(true);
+
+      if (roomPassphrase.trim()) {
+        addAudit("Invite link copied. Share the room passphrase separately.");
+      } else {
+        addAudit("Invite link copied. No room passphrase is set.");
+      }
+    });
+  }
+
   async function handleSignal(message: ProtocolEnvelope, dev: DeviceIdentity, client: SignalingClient): Promise<void> {
     if (message.type === "room.created") {
       const payload = message.payload as { roomCode: string; sessionId: string; expiresAt: string };
       setRoomCode(payload.roomCode);
       setSessionId(payload.sessionId);
       setSessionStatus("created");
+      writeRoomToUrl(payload.roomCode);
+      setInviteCopied(false);
       addAudit(`Room created: ${payload.roomCode}. Expires: ${payload.expiresAt}`);
       return;
     }
@@ -283,6 +324,8 @@ export function App() {
       setPeerDevice(payload.peer ?? null);
       await establishSessionKey(dev, payload.peer);
       setSessionStatus("joined");
+      writeRoomToUrl(payload.roomCode);
+      setInviteCopied(false);
       addAudit(`Joined room: ${payload.roomCode}.`);
       return;
     }
@@ -396,6 +439,12 @@ export function App() {
 
     try {
       const message = await decryptJson<PrivateChatPayload>(sessionKey, payload);
+      const localRoomLockHash = await computeRoomLockHash(roomCode, roomPassphrase);
+
+      if ((message.roomLockHash ?? null) !== (localRoomLockHash ?? null)) {
+        addAudit("Rejected encrypted chat: room passphrase mismatch.");
+        return;
+      }
 
       if (message.kind === "qev.chat.v1") {
         setChatMessages((current) => [
@@ -425,12 +474,15 @@ export function App() {
       if (!sessionKey) throw new Error("QEV session key is not established yet.");
       if (!peerRef.current) throw new Error("Peer channel is not ready yet.");
 
+      const roomLockHash = await computeRoomLockHash(roomCode, roomPassphrase);
+
       const message: PrivateChatPayload = {
         kind: "qev.chat.v1",
         id: createId("chat"),
         body,
         sender: displayName.trim() || "QEV User",
         sentAt: new Date().toISOString(),
+        roomLockHash,
       };
 
       const encrypted = await encryptJson(sessionKey, message);
@@ -677,6 +729,7 @@ export function App() {
     setChatInput("");
     setChatMessages([]);
     setLastPrivateData("none");
+    setInviteCopied(false);
   }
 
   function addAudit(message: string): void {
@@ -749,9 +802,26 @@ export function App() {
           </div>
           <label>
             Session code
-            <input value={roomCode} onChange={(event) => setRoomCode(event.target.value.toUpperCase())} placeholder="QEV-1234-ALPHA" />
+            <input value={roomCode} onChange={(event) => {
+              setRoomCode(event.target.value.toUpperCase());
+              setInviteCopied(false);
+            }} placeholder="QEV-1234-ALPHA" />
           </label>
+          <label>
+            Room passphrase
+            <input
+              value={roomPassphrase}
+              onChange={(event) => setRoomPassphrase(event.target.value)}
+              placeholder="Optional. Share separately from invite link."
+              type="password"
+            />
+          </label>
+          <div className="control-grid">
+            <p className="kv"><span>Invite</span><strong>{inviteCopied ? "copied" : roomCode ? "ready" : "pending room"}</strong></p>
+            <p className="kv"><span>Room lock</span><strong>{roomLockFingerprint}</strong></p>
+          </div>
           <div className="button-row">
+            <button className="secondary" disabled={!roomCode} onClick={() => void copyInviteLink()}>Copy invite link</button>
             <button disabled={!canShare} onClick={() => void startShare()}>Share screen with browser prompt</button>
             <button disabled={!canStartMedia} onClick={() => void startVideoCall()}>Start private video call</button>
             <button className="danger" onClick={endSession}>End session</button>
@@ -892,6 +962,34 @@ export function App() {
       </section>
     </main>
   );
+}
+
+function writeRoomToUrl(roomCode: string): void {
+  if (typeof window === "undefined") return;
+
+  const url = new URL(window.location.href);
+  url.searchParams.set("room", roomCode);
+  url.hash = "";
+  window.history.replaceState(null, "", url.toString());
+}
+
+async function computeRoomLockHash(roomCode: string, passphrase: string): Promise<string | null> {
+  const normalizedPassphrase = passphrase.trim();
+
+  if (!normalizedPassphrase) return null;
+
+  const material = `qev-room-lock-v1:${roomCode.trim().toUpperCase()}:${normalizedPassphrase}`;
+  const encoded = new TextEncoder().encode(material);
+  const digest = await crypto.subtle.digest("SHA-256", encoded);
+  return bytesToHex(new Uint8Array(digest));
+}
+
+function formatRoomLockFingerprint(hash: string): string {
+  return `${hash.slice(0, 4)}-${hash.slice(4, 8)}-${hash.slice(8, 12)}-${hash.slice(12, 16)}`.toUpperCase();
+}
+
+function bytesToHex(bytes: Uint8Array): string {
+  return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 function clamp(value: number): number {
