@@ -1,0 +1,48 @@
+{
+  "counts": {
+    "pass": 8,
+    "fail": 0
+  },
+  "results": [
+    {
+      "status": "PASS",
+      "name": "crypto: ECDH identities derive matching AES-GCM session keys",
+      "detail": "ok"
+    },
+    {
+      "status": "PASS",
+      "name": "crypto: wrong peer key cannot decrypt payload",
+      "detail": "ok"
+    },
+    {
+      "status": "PASS",
+      "name": "protocol: room code, envelope, and safety number are deterministic enough for UI flow",
+      "detail": "ok"
+    },
+    {
+      "status": "PASS",
+      "name": "static: private app-data path is wired",
+      "detail": "ok"
+    },
+    {
+      "status": "PASS",
+      "name": "static: room lock, safety gate, and trusted peer pinning are wired",
+      "detail": "ok"
+    },
+    {
+      "status": "PASS",
+      "name": "static: local privacy export and burn-room cleanup are wired",
+      "detail": "ok"
+    },
+    {
+      "status": "PASS",
+      "name": "static: media truth and experimental frame crypto are wired",
+      "detail": "ok"
+    },
+    {
+      "status": "PASS",
+      "name": "static: user-facing organization exists",
+      "detail": "ok"
+    }
+  ]
+}

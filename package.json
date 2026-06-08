@@ -15,10 +15,16 @@
     "lint": "pnpm -r lint",
     "build:host-agent": "pnpm --filter @qev-workspace/host-agent build",
     "dev:host-agent": "pnpm --filter @qev-workspace/host-agent dev",
-    "audit:qev": "node scripts/qev-audit.mjs"
+    "audit:qev": "node scripts/qev-audit.mjs",
+    "smoke:offline": "node scripts/qev-offline-smoke.mjs",
+    "smoke:ui": "node scripts/qev-ui-smoke.mjs",
+    "smoke:live": "node scripts/qev-live-relay-smoke.mjs",
+    "verify:qev": "pnpm run build:packages && pnpm --filter @qev-workspace/web typecheck && pnpm run build:web && pnpm run smoke:offline && pnpm run smoke:ui",
+    "verify:qev:live": "pnpm run verify:qev && pnpm run smoke:live"
   },
   "packageManager": "pnpm@9.15.0",
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "typescript": "^5.8.3"
   }
 }

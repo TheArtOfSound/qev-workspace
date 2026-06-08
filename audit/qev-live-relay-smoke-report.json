@@ -1,0 +1,51 @@
+{
+  "counts": {
+    "pass": 8,
+    "fail": 0
+  },
+  "results": [
+    {
+      "status": "PASS",
+      "name": "live: load two independent production app contexts",
+      "detail": "ok"
+    },
+    {
+      "status": "PASS",
+      "name": "live: browser A creates identity and room through relay",
+      "detail": "ok"
+    },
+    {
+      "status": "PASS",
+      "name": "live: browser B creates identity and joins room through relay",
+      "detail": "ok"
+    },
+    {
+      "status": "PASS",
+      "name": "live: both browsers establish QEV key with peer",
+      "detail": "ok"
+    },
+    {
+      "status": "PASS",
+      "name": "live: safety verification unlocks private actions",
+      "detail": "ok"
+    },
+    {
+      "status": "PASS",
+      "name": "live: fake-camera private video starts and peer data channel opens",
+      "detail": "ok"
+    },
+    {
+      "status": "PASS",
+      "name": "live: encrypted private-channel proof completes",
+      "detail": "ok"
+    },
+    {
+      "status": "PASS",
+      "name": "live: no browser runtime errors",
+      "detail": "ok"
+    }
+  ],
+  "pageErrors": [],
+  "consoleErrors": [],
+  "baseUrl": "http://localhost:5173"
+}

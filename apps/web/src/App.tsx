@@ -86,6 +86,12 @@ export function App() {
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const sessionKeyRef = useRef<CryptoKey | null>(null);
   const frameMediaEncryptionEnabledRef = useRef(false);
+  const lastPrivateProofIdRef = useRef("");
+  const roomCodeLiveRef = useRef("");
+  const sessionIdLiveRef = useRef("");
+  const roomPassphraseLiveRef = useRef("");
+  const deviceLiveRef = useRef<DeviceIdentity | null>(null);
+  const displayNameLiveRef = useRef("QEV User");
 
   const [activeSection, setActiveSection] = useState<WorkspaceSection>("workspace");
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => {
@@ -134,6 +140,8 @@ export function App() {
   const [safetyVerifiedAt, setSafetyVerifiedAt] = useState("");
   const [localMediaVisible, setLocalMediaVisible] = useState(false);
   const [localMediaStatus, setLocalMediaStatus] = useState("idle");
+  const [remoteVideoAspect, setRemoteVideoAspect] = useState("16 / 9");
+  const [localVideoAspect, setLocalVideoAspect] = useState("16 / 9");
   const [exportPassphrase, setExportPassphrase] = useState("");
   const [lastExportStatus, setLastExportStatus] = useState("not exported");
   const [peerKeyFingerprint, setPeerKeyFingerprint] = useState("pending");
@@ -323,6 +331,14 @@ export function App() {
   }, [roomCode, roomExpiresAt, roomBurned]);
 
   useEffect(() => {
+    roomCodeLiveRef.current = roomCode;
+    sessionIdLiveRef.current = sessionId;
+    roomPassphraseLiveRef.current = roomPassphrase;
+    deviceLiveRef.current = device;
+    displayNameLiveRef.current = displayName;
+  }, [roomCode, sessionId, roomPassphrase, device, displayName]);
+
+  useEffect(() => {
     void refreshPeerTrust(peerDevice);
   }, [peerDevice]);
 
@@ -487,6 +503,7 @@ export function App() {
     setChatMessages([]);
     setLastPrivateData("none");
     setPrivateChannelStatus("local session data cleared");
+    lastPrivateProofIdRef.current = "";
     setLastPrivateProofId("");
     setLastControlIntent("");
     setError("");
@@ -737,6 +754,7 @@ export function App() {
     setChatMessages([]);
     setLastPrivateData("none");
     setPrivateChannelStatus("room burned locally");
+    lastPrivateProofIdRef.current = "";
     setLastPrivateProofId("");
     setLastControlIntent("");
     setExportPassphrase("");
@@ -751,6 +769,8 @@ export function App() {
   async function handleSignal(message: ProtocolEnvelope, dev: DeviceIdentity, client: SignalingClient): Promise<void> {
     if (message.type === "room.created") {
       const payload = message.payload as { roomCode: string; sessionId: string; expiresAt: string };
+      roomCodeLiveRef.current = payload.roomCode;
+      sessionIdLiveRef.current = payload.sessionId;
       setRoomCode(payload.roomCode);
       setSessionId(payload.sessionId);
       setRoomExpiresAt(payload.expiresAt);
@@ -765,6 +785,8 @@ export function App() {
 
     if (message.type === "room.joined") {
       const payload = message.payload as { roomCode: string; sessionId: string; peer?: DeviceIdentityPublic; expiresAt?: string };
+      roomCodeLiveRef.current = payload.roomCode;
+      sessionIdLiveRef.current = payload.sessionId;
       setRoomCode(payload.roomCode);
       setSessionId(payload.sessionId);
       setRoomExpiresAt(payload.expiresAt ?? "");
@@ -887,14 +909,19 @@ export function App() {
 
 
   async function receiveEncryptedPeerData(payload: EncryptedPayload): Promise<void> {
-    if (!sessionKey) {
+    const liveSessionKey = sessionKeyRef.current;
+    const liveRoomCode = roomCodeLiveRef.current;
+    const liveSessionId = sessionIdLiveRef.current;
+    const livePassphrase = roomPassphraseLiveRef.current;
+
+    if (!liveSessionKey) {
       addAudit("Rejected private peer data: no QEV session key.");
       return;
     }
 
     try {
-      const message = await decryptJson<PrivateChatPayload | PrivateProofPayload>(sessionKey, payload);
-      const localRoomLockHash = await computeRoomLockHash(roomCode, roomPassphrase);
+      const message = await decryptJson<PrivateChatPayload | PrivateProofPayload>(liveSessionKey, payload);
+      const localRoomLockHash = await computeRoomLockHash(liveRoomCode, livePassphrase);
 
       if ((message.roomLockHash ?? null) !== (localRoomLockHash ?? null)) {
         addAudit("Rejected encrypted peer data: room passphrase mismatch.");
@@ -903,7 +930,7 @@ export function App() {
       }
 
       if (message.kind === "qev.private-proof.v1") {
-        if (message.roomCode !== roomCode || message.sessionId !== sessionId) {
+        if (message.roomCode !== liveRoomCode || message.sessionId !== liveSessionId) {
           setPrivateChannelStatus("failed / session mismatch");
           addAudit("Rejected private-channel proof: session mismatch.");
           return;
@@ -915,7 +942,7 @@ export function App() {
         }
 
         if (message.mode === "pong") {
-          if (lastPrivateProofId && message.proofId === lastPrivateProofId) {
+          if (lastPrivateProofIdRef.current && message.proofId === lastPrivateProofIdRef.current) {
             setPrivateChannelStatus(`verified with ${message.senderName} at ${new Date(message.sentAt).toLocaleTimeString()}`);
             setLastPrivateData(`Private-channel proof verified at ${new Date(message.sentAt).toLocaleTimeString()}.`);
             addAudit("QEV encrypted private-channel proof verified.");
@@ -987,53 +1014,70 @@ export function App() {
 
   async function verifyPrivateChannel(): Promise<void> {
     await safe(async () => {
-      if (!sessionKey) throw new Error("QEV session key is not established yet.");
+      const liveSessionKey = sessionKeyRef.current;
+      const liveRoomCode = roomCodeLiveRef.current;
+      const liveSessionId = sessionIdLiveRef.current;
+      const liveDevice = deviceLiveRef.current;
+      const liveName = displayNameLiveRef.current.trim() || "QEV User";
+
+      if (!liveSessionKey) throw new Error("QEV session key is not established yet.");
       if (!safetyVerified) throw new Error("Verify the QEV safety number before testing the private channel.");
       if (!peerRef.current) throw new Error("Peer data channel is not ready. Start video or screen share first.");
-      if (!device) throw new Error("Local device identity is missing.");
-      if (!roomCode || !sessionId) throw new Error("No active room/session.");
+      if (!liveDevice) throw new Error("Local device identity is missing.");
+      if (!liveRoomCode || !liveSessionId) throw new Error("No active room/session.");
 
       const proofId = createId("proof");
-      const roomLockHash = await computeRoomLockHash(roomCode, roomPassphrase);
+      const roomLockHash = await computeRoomLockHash(liveRoomCode, roomPassphraseLiveRef.current);
       const proof: PrivateProofPayload = {
         kind: "qev.private-proof.v1",
         proofId,
         mode: "ping",
-        senderDeviceId: device.deviceId,
-        senderName: displayName.trim() || "QEV User",
-        roomCode,
-        sessionId,
+        senderDeviceId: liveDevice.deviceId,
+        senderName: liveName,
+        roomCode: liveRoomCode,
+        sessionId: liveSessionId,
         roomLockHash,
         sentAt: new Date().toISOString(),
       };
 
-      const encrypted = await encryptJson(sessionKey, proof);
-      peerRef.current.sendEncrypted(encrypted);
-
+      const encrypted = await encryptJson(liveSessionKey, proof);
+      lastPrivateProofIdRef.current = proofId;
       setLastPrivateProofId(proofId);
       setPrivateChannelStatus("encrypted proof sent / waiting for peer");
+
+      peerRef.current.sendEncrypted(encrypted);
+
       setLastPrivateData(`Private-channel proof sent at ${new Date(proof.sentAt).toLocaleTimeString()}.`);
       addAudit("QEV encrypted private-channel proof sent.");
     });
   }
 
   async function respondToPrivateProof(proof: PrivateProofPayload): Promise<void> {
-    if (!sessionKey || !peerRef.current || !device) return;
+    const liveSessionKey = sessionKeyRef.current;
+    const liveDevice = deviceLiveRef.current;
+    const liveRoomCode = roomCodeLiveRef.current;
+    const liveSessionId = sessionIdLiveRef.current;
+    const liveName = displayNameLiveRef.current.trim() || "QEV User";
 
-    const roomLockHash = await computeRoomLockHash(roomCode, roomPassphrase);
+    if (!liveSessionKey || !peerRef.current || !liveDevice) {
+      addAudit("Could not answer private-channel proof: missing live key, peer, or device.");
+      return;
+    }
+
+    const roomLockHash = await computeRoomLockHash(liveRoomCode, roomPassphraseLiveRef.current);
     const response: PrivateProofPayload = {
       kind: "qev.private-proof.v1",
       proofId: proof.proofId,
       mode: "pong",
-      senderDeviceId: device.deviceId,
-      senderName: displayName.trim() || "QEV User",
-      roomCode,
-      sessionId,
+      senderDeviceId: liveDevice.deviceId,
+      senderName: liveName,
+      roomCode: liveRoomCode,
+      sessionId: liveSessionId,
       roomLockHash,
       sentAt: new Date().toISOString(),
     };
 
-    const encrypted = await encryptJson(sessionKey, response);
+    const encrypted = await encryptJson(liveSessionKey, response);
     peerRef.current.sendEncrypted(encrypted);
     setPrivateChannelStatus("received proof / encrypted response sent");
     addAudit("QEV private-channel proof received and answered.");
@@ -1274,6 +1318,7 @@ export function App() {
     setChatMessages([]);
     setLastPrivateData("none");
     setPrivateChannelStatus("not tested");
+    lastPrivateProofIdRef.current = "";
     setLastPrivateProofId("");
     setInviteCopied(false);
   }
@@ -1282,8 +1327,37 @@ export function App() {
     setAudit((current) => [`${new Date().toLocaleTimeString()} — ${message}`, ...current].slice(0, 60));
   }
 
+  function updateVideoAspect(kind: "remote" | "local", video: HTMLVideoElement | null): void {
+    if (!video || !video.videoWidth || !video.videoHeight) return;
+
+    const width = video.videoWidth;
+    const height = video.videoHeight;
+    const aspect = `${width} / ${height}`;
+
+    if (kind === "remote") {
+      setRemoteVideoAspect(aspect);
+      addAudit(`Remote stream resolution detected: ${width}×${height}.`);
+    } else {
+      setLocalVideoAspect(aspect);
+      addAudit(`Local stream resolution detected: ${width}×${height}.`);
+    }
+  }
+
   return (
-    <main className="shell" data-section={activeSection}>
+    <main
+      className="shell"
+      data-section={activeSection}
+      data-qev-key={sessionKey ? "established" : "pending"}
+      data-peer-connected={peerDevice ? "true" : "false"}
+      data-safety-verified={safetyVerified ? "true" : "false"}
+      data-private-channel={privateChannelStatus.startsWith("verified") ? "verified" : privateChannelStatus}
+      data-private-data={lastPrivateData}
+      data-proof-id={lastPrivateProofId}
+      style={{
+        "--qev-remote-aspect": remoteVideoAspect,
+        "--qev-local-aspect": localVideoAspect,
+      } as React.CSSProperties}
+    >
       <section className="hero">
         <div>
           <p className="eyebrow">QEV Workspace</p>
@@ -1306,19 +1380,19 @@ export function App() {
 
       <section className="workspace-chrome">
         <nav className="workspace-switcher" aria-label="QEV workspace sections">
-          <button className={activeSection === "workspace" ? "active" : ""} aria-pressed={activeSection === "workspace"} onClick={() => setActiveSection("workspace")}>
+          <button aria-label="Workspace" title="Workspace" className={activeSection === "workspace" ? "active" : ""} aria-pressed={activeSection === "workspace"} onClick={() => setActiveSection("workspace")}>
             Workspace
           </button>
-          <button className={activeSection === "setup" ? "active" : ""} aria-pressed={activeSection === "setup"} onClick={() => setActiveSection("setup")}>
+          <button aria-label="Setup" title="Setup" className={activeSection === "setup" ? "active" : ""} aria-pressed={activeSection === "setup"} onClick={() => setActiveSection("setup")}>
             Setup
           </button>
-          <button className={activeSection === "security" ? "active" : ""} aria-pressed={activeSection === "security"} onClick={() => setActiveSection("security")}>
+          <button aria-label="Security" title="Security" className={activeSection === "security" ? "active" : ""} aria-pressed={activeSection === "security"} onClick={() => setActiveSection("security")}>
             Security
           </button>
-          <button className={activeSection === "controls" ? "active" : ""} aria-pressed={activeSection === "controls"} onClick={() => setActiveSection("controls")}>
+          <button aria-label="Control" title="Control" className={activeSection === "controls" ? "active" : ""} aria-pressed={activeSection === "controls"} onClick={() => setActiveSection("controls")}>
             Control
           </button>
-          <button className={activeSection === "logs" ? "active" : ""} aria-pressed={activeSection === "logs"} onClick={() => setActiveSection("logs")}>
+          <button aria-label="Logs" title="Logs" className={activeSection === "logs" ? "active" : ""} aria-pressed={activeSection === "logs"} onClick={() => setActiveSection("logs")}>
             Logs
           </button>
         </nav>
@@ -1596,6 +1670,8 @@ export function App() {
             <video
               ref={localVideoRef}
               className={localMediaVisible ? "remote active" : "remote"}
+              onLoadedMetadata={(event) => updateVideoAspect("local", event.currentTarget)}
+              onPlay={(event) => updateVideoAspect("local", event.currentTarget)}
               autoPlay
               muted
               playsInline
@@ -1610,6 +1686,8 @@ export function App() {
             <video
               ref={remoteVideoRef}
               className={remoteVisible ? "remote active" : "remote"}
+              onLoadedMetadata={(event) => updateVideoAspect("remote", event.currentTarget)}
+              onPlay={(event) => updateVideoAspect("remote", event.currentTarget)}
               autoPlay
               playsInline
               onMouseMove={(event) => void sendEncryptedPointerIntent(event, "pointer.move")}

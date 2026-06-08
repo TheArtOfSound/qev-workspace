@@ -1,0 +1,45 @@
+{
+  "counts": {
+    "pass": 7,
+    "fail": 0
+  },
+  "results": [
+    {
+      "status": "PASS",
+      "name": "ui: app renders production build without blank page",
+      "detail": "ok"
+    },
+    {
+      "status": "PASS",
+      "name": "ui: theme switcher works",
+      "detail": "ok"
+    },
+    {
+      "status": "PASS",
+      "name": "ui: setup can create local identity",
+      "detail": "ok"
+    },
+    {
+      "status": "PASS",
+      "name": "ui: security tab is readable and not smashed",
+      "detail": "ok"
+    },
+    {
+      "status": "PASS",
+      "name": "ui: control tab is organized into usable panels",
+      "detail": "ok"
+    },
+    {
+      "status": "PASS",
+      "name": "ui: logs tab renders audit trail",
+      "detail": "ok"
+    },
+    {
+      "status": "PASS",
+      "name": "ui: no browser runtime errors",
+      "detail": "ok"
+    }
+  ],
+  "pageErrors": [],
+  "consoleErrors": []
+}
