@@ -1,4 +1,4 @@
-name: Build QEV Host Desktop Installers
+name: Build QEV Host Mac Installer
 
 on:
   workflow_dispatch:
@@ -10,17 +10,8 @@ permissions:
   contents: write
 
 jobs:
-  build-host:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: macos-latest
-            args: "--bundles dmg"
-          - platform: windows-latest
-            args: "--bundles nsis"
-
-    runs-on: ${{ matrix.platform }}
+  build-mac:
+    runs-on: macos-latest
 
     steps:
       - uses: actions/checkout@v4
@@ -38,23 +29,41 @@ jobs:
 
       - run: pnpm install --frozen-lockfile=false
 
-      - uses: tauri-apps/tauri-action@v0.6.2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          projectPath: apps/host-desktop
-          tauriScript: pnpm exec tauri
-          tagName: host-v__VERSION__
-          releaseName: "QEV Host v__VERSION__"
-          releaseBody: |
-            Download QEV Host on the computer you want to control.
+      - name: Build QEV Host DMG
+        working-directory: apps/host-desktop
+        run: pnpm exec tauri build --bundles dmg
 
-            Preview build notes:
-            - Mac users download the DMG.
-            - Windows users download the setup EXE.
-            - This preview build is not code-signed yet, so macOS/Windows may show a security warning.
-            - A signed/notarized installer is required before this feels fully consumer-grade.
-          releaseDraft: false
-          prerelease: true
-          args: ${{ matrix.args }}
-          assetNamePattern: "qev-host-[platform]-[arch][setup].[ext]"
+      - name: Stage DMG
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          find apps/host-desktop/src-tauri/target/release/bundle/dmg -name "*.dmg" -print
+          cp apps/host-desktop/src-tauri/target/release/bundle/dmg/*.dmg release-assets/
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          NOTES=$(cat <<'NOTES'
+Download QEV Host on the Mac you want to control.
+
+Preview build notes:
+- This is a macOS DMG installer.
+- This preview build is not code-signed/notarized yet, so macOS may show a security warning.
+- Open QEV Host once, enable launch at login, and grant Screen Recording + Accessibility permissions.
+NOTES
+          )
+
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            gh release upload "$TAG_NAME" release-assets/* --clobber
+          else
+            gh release create "$TAG_NAME" release-assets/* \
+              --title "QEV Host $TAG_NAME" \
+              --notes "$NOTES" \
+              --prerelease
+          fi
