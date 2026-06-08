@@ -1,7 +1,7 @@
 use chrono::{DateTime, Duration, Utc};
 use serde::Serialize;
 use std::sync::Mutex;
-use tauri::{Manager, State};
+use tauri::State;
 
 #[derive(Debug, Clone)]
 struct HostStateInner {
@@ -115,7 +115,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
-            Some(vec!["--autostart".to_string()]),
+            Some(vec!["--autostart"]),
         ))
         .invoke_handler(tauri::generate_handler![
             host_status,
@@ -125,10 +125,6 @@ pub fn run() {
             revoke_control,
             open_mac_permissions
         ])
-        .setup(|app| {
-            let _ = app.handle();
-            Ok(())
-        })
         .run(tauri::generate_context!())
         .expect("error while running QEV Host");
 }
