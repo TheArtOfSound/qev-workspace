@@ -98,6 +98,9 @@ export function App() {
   const [roomLockFingerprint, setRoomLockFingerprint] = useState("not set");
   const [inviteCopied, setInviteCopied] = useState(false);
   const [sessionId, setSessionId] = useState("");
+  const [roomExpiresAt, setRoomExpiresAt] = useState("");
+  const [roomLifecycleStatus, setRoomLifecycleStatus] = useState("no room");
+  const [roomBurned, setRoomBurned] = useState(false);
   const [relayStatus, setRelayStatus] = useState<SignalingStatus>("idle");
   const [sessionStatus, setSessionStatus] = useState<SessionStatus>("none");
   const [audit, setAudit] = useState<string[]>(["No session active."]);
@@ -161,6 +164,46 @@ export function App() {
       cancelled = true;
     };
   }, [roomCode, roomPassphrase]);
+
+  useEffect(() => {
+    function updateLifecycleStatus(): void {
+      if (roomBurned) {
+        setRoomLifecycleStatus("burned locally");
+        return;
+      }
+
+      if (!roomCode) {
+        setRoomLifecycleStatus("no room");
+        return;
+      }
+
+      if (!roomExpiresAt) {
+        setRoomLifecycleStatus("active / expiry unknown");
+        return;
+      }
+
+      const expiresMs = new Date(roomExpiresAt).getTime();
+
+      if (Number.isNaN(expiresMs)) {
+        setRoomLifecycleStatus("active / invalid expiry");
+        return;
+      }
+
+      const remaining = expiresMs - Date.now();
+
+      if (remaining <= 0) {
+        setRoomLifecycleStatus("expired");
+        return;
+      }
+
+      setRoomLifecycleStatus(`expires in ${formatDuration(remaining)}`);
+    }
+
+    updateLifecycleStatus();
+    const timer = window.setInterval(updateLifecycleStatus, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [roomCode, roomExpiresAt, roomBurned]);
 
   useEffect(() => {
     void refreshPeerTrust(peerDevice);
@@ -530,11 +573,71 @@ export function App() {
     });
   }
 
+  function burnRoom(): void {
+    if (device && roomCode) {
+      try {
+        signalingRef.current?.endSession(roomCode, device.deviceId);
+      } catch {
+        // ignore
+      }
+    }
+
+    peerRef.current?.stop();
+    signalingRef.current?.close();
+    signalingRef.current = null;
+    peerRef.current = null;
+
+    setRelayStatus("closed");
+    setSessionStatus("ended");
+    setRoomCode("");
+    setSessionId("");
+    setRoomExpiresAt("");
+    setRoomPassphrase("");
+    setRoomLockFingerprint("not set");
+    setRoomBurned(true);
+    setInviteCopied(false);
+
+    setPeerDevice(null);
+    sessionKeyRef.current = null;
+    setSessionKey(null);
+    resetSafetyVerification();
+
+    setRemoteVisible(false);
+    setLocalMediaVisible(false);
+    setLocalMediaStatus("idle");
+    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+    if (localVideoRef.current) localVideoRef.current.srcObject = null;
+
+    setPointer(null);
+    setHostGrant(null);
+    setViewerGrant(null);
+    setIncomingControlRequest(false);
+    setControlRequested(false);
+    setControlGrant(null);
+    setAgentCommandCopied(false);
+
+    setChatInput("");
+    setChatMessages([]);
+    setLastPrivateData("none");
+    setPrivateChannelStatus("room burned locally");
+    setLastPrivateProofId("");
+    setLastControlIntent("");
+    setExportPassphrase("");
+    setLastExportStatus("not exported");
+    setFrameCryptoStatus("not attached");
+
+    void revokeLocalAgent();
+    clearRoomFromUrl();
+    setAudit([`${new Date().toLocaleTimeString()} — Room burned locally. Invite, passphrase, peer session, media, chat, and grants cleared from this browser view.`]);
+  }
+
   async function handleSignal(message: ProtocolEnvelope, dev: DeviceIdentity, client: SignalingClient): Promise<void> {
     if (message.type === "room.created") {
       const payload = message.payload as { roomCode: string; sessionId: string; expiresAt: string };
       setRoomCode(payload.roomCode);
       setSessionId(payload.sessionId);
+      setRoomExpiresAt(payload.expiresAt);
+      setRoomBurned(false);
       setSessionStatus("created");
       writeRoomToUrl(payload.roomCode);
       setInviteCopied(false);
@@ -544,9 +647,11 @@ export function App() {
     }
 
     if (message.type === "room.joined") {
-      const payload = message.payload as { roomCode: string; sessionId: string; peer?: DeviceIdentityPublic };
+      const payload = message.payload as { roomCode: string; sessionId: string; peer?: DeviceIdentityPublic; expiresAt?: string };
       setRoomCode(payload.roomCode);
       setSessionId(payload.sessionId);
+      setRoomExpiresAt(payload.expiresAt ?? "");
+      setRoomBurned(false);
       setPeerDevice(payload.peer ?? null);
       resetSafetyVerification();
       await establishSessionKey(dev, payload.peer);
@@ -1142,6 +1247,8 @@ export function App() {
           </label>
           <div className="control-grid">
             <p className="kv"><span>Invite</span><strong>{inviteCopied ? "copied" : roomCode ? "ready" : "pending room"}</strong></p>
+            <p className="kv"><span>Lifecycle</span><strong>{roomLifecycleStatus}</strong></p>
+            <p className="kv"><span>Expires</span><strong>{roomExpiresAt ? new Date(roomExpiresAt).toLocaleTimeString() : "unknown"}</strong></p>
             <p className="kv"><span>Room lock</span><strong>{roomLockFingerprint}</strong></p>
           </div>
           <div className="button-row">
@@ -1149,6 +1256,7 @@ export function App() {
             <button disabled={!canShare || !canUsePrivateLayer} onClick={() => void startShare()}>Share screen with browser prompt</button>
             <button disabled={!canStartMedia || !canUsePrivateLayer} onClick={() => void startVideoCall()}>Start private video call</button>
             <button className="danger" onClick={endSession}>End session</button>
+            <button className="danger" disabled={!roomCode && !sessionId} onClick={burnRoom}>Burn room locally</button>
           </div>
         </div>
 
@@ -1493,6 +1601,29 @@ function writeRoomToUrl(roomCode: string): void {
   url.searchParams.set("room", roomCode);
   url.hash = "";
   window.history.replaceState(null, "", url.toString());
+}
+
+function clearRoomFromUrl(): void {
+  if (typeof window === "undefined") return;
+
+  const url = new URL(window.location.href);
+  url.searchParams.delete("room");
+  url.hash = "";
+  window.history.replaceState(null, "", url.toString());
+}
+
+function formatDuration(ms: number): string {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  if (minutes >= 60) {
+    const hours = Math.floor(minutes / 60);
+    const restMinutes = minutes % 60;
+    return `${hours}h ${restMinutes}m`;
+  }
+
+  return `${minutes}m ${seconds}s`;
 }
 
 async function computeRoomLockHash(roomCode: string, passphrase: string): Promise<string | null> {

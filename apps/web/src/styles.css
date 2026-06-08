@@ -839,3 +839,8 @@ pre {
   display: grid;
   align-content: center;
 }
+
+
+.session-panel .danger {
+  min-width: max-content;
+}
