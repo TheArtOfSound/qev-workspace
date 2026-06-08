@@ -4,7 +4,6 @@
   "description": "CLI installer and launcher for QEV Workspace Host.",
   "type": "module",
   "bin": {
-    "qev": "./bin/qev-workspace.js",
     "qev-workspace": "./bin/qev-workspace.js"
   },
   "files": [
