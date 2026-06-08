@@ -10,3 +10,6 @@ coverage/
 .turbo/
 .vite/
 .cache/
+apps/host-desktop/src-tauri/target/
+apps/host-desktop/src-tauri/gen/
+apps/host-agent/scripts/
