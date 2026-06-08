@@ -43,6 +43,7 @@ export function App() {
   const signalingRef = useRef<SignalingClient | null>(null);
   const peerRef = useRef<QevPeer | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+  const localVideoRef = useRef<HTMLVideoElement | null>(null);
 
   const [relayUrl, setRelayUrl] = useState(DEFAULT_RELAY_URL);
   const [displayName, setDisplayName] = useState("QEV User");
@@ -70,10 +71,13 @@ export function App() {
   const [chatInput, setChatInput] = useState("");
   const [chatMessages, setChatMessages] = useState<ChatEntry[]>([]);
   const [lastPrivateData, setLastPrivateData] = useState("none");
+  const [localMediaVisible, setLocalMediaVisible] = useState(false);
+  const [localMediaStatus, setLocalMediaStatus] = useState("idle");
 
   const fingerprint = device && sessionId ? sessionFingerprint(sessionId, device.deviceId, peerDevice?.deviceId) : "pending peer";
   const canJoin = relayStatus !== "connecting" && roomCode.trim().length >= 8;
   const canShare = Boolean(roomCode && sessionId && relayStatus === "open");
+  const canStartMedia = Boolean(roomCode && sessionId && relayStatus === "open");
   const activeControlGrant = isGrantActive(controlGrant);
   const agentCommand = controlGrant ? buildAgentCommand(controlGrant) : "";
   const agentLaunchUrl = controlGrant ? buildAgentLaunchUrl(controlGrant) : "";
@@ -144,9 +148,26 @@ export function App() {
       peerRef.current = peer;
 
       const offer = await peer.startScreenShare();
-      client.sendSignal("signal.offer", roomCode, { description: offer }, dev.deviceId);
+      client.sendSignal("signal.offer", roomCode, { description: offer, mode: "screen" }, dev.deviceId);
       setSessionStatus("sharing");
       addAudit("Screen-share offer sent. Browser permission was required.");
+    });
+  }
+
+  async function startVideoCall(): Promise<void> {
+    await safe(async () => {
+      const dev = await ensureDevice();
+      const client = signalingRef.current;
+      if (!client || !roomCode) throw new Error("Create or join a room first.");
+
+      const peer = createPeer(client, dev.deviceId, roomCode);
+      peerRef.current = peer;
+
+      const offer = await peer.startCameraCall({ video: true, audio: true });
+      client.sendSignal("signal.offer", roomCode, { description: offer, mode: "camera" }, dev.deviceId);
+      setSessionStatus("sharing");
+      setLocalMediaStatus("camera + mic active");
+      addAudit("Private video-call offer sent. Browser camera/mic permission was required.");
     });
   }
 
@@ -228,6 +249,9 @@ export function App() {
     setRelayStatus("closed");
     setSessionStatus("ended");
     setRemoteVisible(false);
+    setLocalMediaVisible(false);
+    setLocalMediaStatus("idle");
+    if (localVideoRef.current) localVideoRef.current.srcObject = null;
     setHostGrant(null);
     setViewerGrant(null);
     setIncomingControlRequest(false);
@@ -280,15 +304,16 @@ export function App() {
     }
 
     if (message.type === "signal.offer") {
-      const payload = message.payload as { description: RTCSessionDescriptionInit };
+      const payload = message.payload as { description: RTCSessionDescriptionInit; mode?: "screen" | "camera" };
       const targetRoom = message.roomCode ?? roomCode;
       if (!targetRoom) throw new Error("Offer received without room code.");
 
       const peer = createPeer(client, dev.deviceId, targetRoom);
       peerRef.current = peer;
-      const answer = await peer.acceptOffer(payload.description);
+      const answer = await peer.acceptOffer(payload.description, payload.mode === "camera" ? { video: true, audio: true } : {});
       client.sendSignal("signal.answer", targetRoom, { description: answer }, dev.deviceId);
       setSessionStatus("viewing");
+      if (payload.mode === "camera") setLocalMediaStatus("camera + mic active");
       return;
     }
 
@@ -471,6 +496,12 @@ export function App() {
         setRemoteVisible(true);
         addAudit("Remote stream attached.");
       },
+      onLocalStream: (stream) => {
+        if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+        setLocalMediaVisible(true);
+        setLocalMediaStatus("local media active");
+        addAudit("Local camera/microphone stream attached.");
+      },
       onPointer: (payload) => setPointer(payload),
       onEncryptedData: (payload) => void receiveEncryptedPeerData(payload),
       onAudit: addAudit,
@@ -634,6 +665,9 @@ export function App() {
     setPeerDevice(null);
     setSessionKey(null);
     setRemoteVisible(false);
+    setLocalMediaVisible(false);
+    setLocalMediaStatus("idle");
+    if (localVideoRef.current) localVideoRef.current.srcObject = null;
     setPointer(null);
     setHostGrant(null);
     setViewerGrant(null);
@@ -719,6 +753,7 @@ export function App() {
           </label>
           <div className="button-row">
             <button disabled={!canShare} onClick={() => void startShare()}>Share screen with browser prompt</button>
+            <button disabled={!canStartMedia} onClick={() => void startVideoCall()}>Start private video call</button>
             <button className="danger" onClick={endSession}>End session</button>
           </div>
         </div>
@@ -801,6 +836,27 @@ export function App() {
           {controlGrant ? (
             <pre className="agent-command">{agentCommand}</pre>
           ) : null}
+        </div>
+
+        <div className="panel wide local-preview">
+          <h2>Local camera / mic</h2>
+          <p>
+            Your local media stays visible here when camera/mic is active. Browser permission is required every time.
+          </p>
+          <div className="control-grid">
+            <p className="kv"><span>Local media</span><strong>{localMediaStatus}</strong></p>
+            <p className="kv"><span>Privacy layer</span><strong>WebRTC media + QEV encrypted app data</strong></p>
+          </div>
+          <div className="video-wrap local-wrap">
+            <video
+              ref={localVideoRef}
+              className={localMediaVisible ? "remote active" : "remote"}
+              autoPlay
+              muted
+              playsInline
+            />
+            {!localMediaVisible ? <div className="empty-video">No local camera/mic stream active.</div> : null}
+          </div>
         </div>
 
         <div className="panel wide">

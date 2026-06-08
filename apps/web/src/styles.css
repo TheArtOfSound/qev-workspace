@@ -570,3 +570,17 @@ pre {
     font-size: clamp(2.2rem, 14vw, 4.4rem);
   }
 }
+
+.local-preview p {
+  color: var(--muted);
+  margin: 0;
+}
+
+.local-wrap {
+  min-height: 280px;
+}
+
+.local-wrap .remote {
+  min-height: 280px;
+  object-fit: cover;
+}

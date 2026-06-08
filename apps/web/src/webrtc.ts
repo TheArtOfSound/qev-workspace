@@ -13,6 +13,7 @@ export type QevPeerDataMessage =
 export type PeerCallbacks = {
   onLocalIce: (candidate: RTCIceCandidate) => void;
   onRemoteStream: (stream: MediaStream) => void;
+  onLocalStream?: (stream: MediaStream) => void;
   onPointer: (payload: PointerPayload) => void;
   onEncryptedData?: (payload: EncryptedPayload) => void;
   onAudit: (message: string) => void;
@@ -171,6 +172,7 @@ export class QevPeer {
 
   private attachLocalStream(stream: MediaStream, endMessage: string): void {
     this.localStreams.push(stream);
+    this.callbacks.onLocalStream?.(stream);
 
     for (const track of stream.getTracks()) {
       this.pc.addTrack(track, stream);
