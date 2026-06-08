@@ -22,6 +22,7 @@ import { buildAgentCommand, buildAgentLaunchUrl, createPointerGrant, isGrantActi
 
 const DEFAULT_RELAY_URL = import.meta.env.VITE_RELAY_URL ?? "wss://qev-workspace.onrender.com/ws";
 const LOCAL_AGENT_URL = "http://127.0.0.1:39483";
+const TRUSTED_PEERS_STORAGE_KEY = "qev.workspace.trustedPeers.v1";
 
 type SessionStatus = "none" | "created" | "joined" | "peer-connected" | "sharing" | "viewing" | "ended";
 
@@ -37,6 +38,14 @@ type PrivateChatPayload = {
 type ChatEntry = PrivateChatPayload & {
   direction: "me" | "peer" | "system";
   encrypted: boolean;
+};
+
+type TrustedPeerRecord = {
+  deviceId: string;
+  displayName: string;
+  publicKeyFingerprint: string;
+  trustedAt: string;
+  lastSeenAt: string;
 };
 
 export function App() {
@@ -82,6 +91,8 @@ export function App() {
   const [safetyVerifiedAt, setSafetyVerifiedAt] = useState("");
   const [localMediaVisible, setLocalMediaVisible] = useState(false);
   const [localMediaStatus, setLocalMediaStatus] = useState("idle");
+  const [peerKeyFingerprint, setPeerKeyFingerprint] = useState("pending");
+  const [peerTrustStatus, setPeerTrustStatus] = useState("pending peer");
 
   const fingerprint = device && sessionId ? sessionFingerprint(sessionId, device.deviceId, peerDevice?.deviceId) : "pending peer";
   const canJoin = relayStatus !== "connecting" && roomCode.trim().length >= 8;
@@ -113,6 +124,10 @@ export function App() {
       cancelled = true;
     };
   }, [roomCode, roomPassphrase]);
+
+  useEffect(() => {
+    void refreshPeerTrust(peerDevice);
+  }, [peerDevice]);
 
   async function ensureDevice(): Promise<DeviceIdentity> {
     const existing = device ?? (await vault.loadDeviceIdentity());
@@ -150,6 +165,10 @@ export function App() {
       return;
     }
 
+    if (peerTrustStatus.startsWith("warning")) {
+      addAudit("Safety verified despite remembered-key warning. Continue only if the peer confirmed the new key out-of-band.");
+    }
+
     setSafetyVerified(true);
     setSafetyVerifiedAt(new Date().toISOString());
     addAudit("QEV safety number marked verified by local user.");
@@ -158,6 +177,67 @@ export function App() {
   function clearSafetyVerification(): void {
     resetSafetyVerification();
     addAudit("QEV safety verification cleared.");
+  }
+
+  async function refreshPeerTrust(peer: DeviceIdentityPublic | null): Promise<void> {
+    if (!peer) {
+      setPeerKeyFingerprint("pending");
+      setPeerTrustStatus("pending peer");
+      return;
+    }
+
+    const fingerprint = await devicePublicKeyFingerprint(peer);
+    setPeerKeyFingerprint(formatPeerKeyFingerprint(fingerprint));
+
+    const records = loadTrustedPeerRecords();
+    const existing = records[peer.deviceId];
+
+    if (!existing) {
+      setPeerTrustStatus("new peer / not remembered");
+      return;
+    }
+
+    if (existing.publicKeyFingerprint !== fingerprint) {
+      setPeerTrustStatus("warning / remembered key changed");
+      resetSafetyVerification();
+      addAudit("WARNING: remembered peer key changed. Verify out-of-band before trusting this session.");
+      return;
+    }
+
+    setPeerTrustStatus(`recognized peer / trusted ${new Date(existing.trustedAt).toLocaleDateString()}`);
+  }
+
+  async function rememberVerifiedPeer(): Promise<void> {
+    await safe(async () => {
+      if (!peerDevice) throw new Error("No peer is connected.");
+      if (!safetyVerified) throw new Error("Verify the safety number before remembering this peer.");
+
+      const fingerprint = await devicePublicKeyFingerprint(peerDevice);
+      const records = loadTrustedPeerRecords();
+
+      records[peerDevice.deviceId] = {
+        deviceId: peerDevice.deviceId,
+        displayName: peerDevice.displayName,
+        publicKeyFingerprint: fingerprint,
+        trustedAt: new Date().toISOString(),
+        lastSeenAt: new Date().toISOString(),
+      };
+
+      saveTrustedPeerRecords(records);
+      setPeerKeyFingerprint(formatPeerKeyFingerprint(fingerprint));
+      setPeerTrustStatus("remembered verified peer");
+      addAudit(`Trusted peer remembered locally: ${peerDevice.displayName}.`);
+    });
+  }
+
+  function forgetTrustedPeer(): void {
+    if (!peerDevice) return;
+
+    const records = loadTrustedPeerRecords();
+    delete records[peerDevice.deviceId];
+    saveTrustedPeerRecords(records);
+    setPeerTrustStatus("forgotten / not remembered");
+    addAudit(`Trusted peer forgotten locally: ${peerDevice.displayName}.`);
   }
 
   async function connect(): Promise<SignalingClient> {
@@ -877,6 +957,8 @@ export function App() {
           <p className="kv"><span>Session</span><strong>{sessionStatus}</strong></p>
           <p className="kv"><span>Session ID</span><strong>{sessionId || "not created"}</strong></p>
           <p className="kv"><span>Peer</span><strong>{peerDevice?.displayName ?? "pending"}</strong></p>
+          <p className={`kv ${peerTrustStatus.startsWith("warning") ? "trust-warning" : ""}`}><span>Peer trust</span><strong>{peerTrustStatus}</strong></p>
+          <p className="kv"><span>Peer key</span><strong>{peerKeyFingerprint}</strong></p>
           <p className="kv"><span>Safety number</span><strong>{fingerprint}</strong></p>
           <p className="kv"><span>QEV key</span><strong>{sessionKey ? "established" : "pending"}</strong></p>
           <p className="kv"><span>Safety verification</span><strong>{safetyStatus}</strong></p>
@@ -887,9 +969,16 @@ export function App() {
             <button className="secondary" disabled={!safetyVerified} onClick={clearSafetyVerification}>
               Clear verification
             </button>
+            <button className="secondary" disabled={!peerDevice || !safetyVerified} onClick={() => void rememberVerifiedPeer()}>
+              Remember verified peer
+            </button>
+            <button className="secondary" disabled={!peerDevice} onClick={forgetTrustedPeer}>
+              Forget peer
+            </button>
           </div>
           <p className="safety-note">
             Compare this safety number with the other person before using private chat, screen share, video, or control.
+            Trust pinning remembers the peer key locally and warns if that key changes later.
           </p>
           <div className={sessionStatus === "sharing" || sessionStatus === "viewing" ? "indicator live" : "indicator"}>
             {sessionStatus === "sharing" ? "You are sharing your screen" : sessionStatus === "viewing" ? "You are viewing a shared screen" : "No active screen session"}
@@ -1018,6 +1107,46 @@ export function App() {
       </section>
     </main>
   );
+}
+
+function loadTrustedPeerRecords(): Record<string, TrustedPeerRecord> {
+  if (typeof localStorage === "undefined") return {};
+
+  const raw = localStorage.getItem(TRUSTED_PEERS_STORAGE_KEY);
+  if (!raw) return {};
+
+  try {
+    return JSON.parse(raw) as Record<string, TrustedPeerRecord>;
+  } catch {
+    localStorage.removeItem(TRUSTED_PEERS_STORAGE_KEY);
+    return {};
+  }
+}
+
+function saveTrustedPeerRecords(records: Record<string, TrustedPeerRecord>): void {
+  if (typeof localStorage === "undefined") return;
+  localStorage.setItem(TRUSTED_PEERS_STORAGE_KEY, JSON.stringify(records));
+}
+
+async function devicePublicKeyFingerprint(peer: DeviceIdentityPublic): Promise<string> {
+  const encoded = new TextEncoder().encode(canonicalJson(peer.publicKeyJwk));
+  const digest = await crypto.subtle.digest("SHA-256", encoded);
+  return bytesToHex(new Uint8Array(digest));
+}
+
+function formatPeerKeyFingerprint(hash: string): string {
+  return `${hash.slice(0, 4)}-${hash.slice(4, 8)}-${hash.slice(8, 12)}-${hash.slice(12, 16)}`.toUpperCase();
+}
+
+function canonicalJson(value: unknown): string {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => canonicalJson(item)).join(",")}]`;
+  }
+
+  const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b));
+  return `{${entries.map(([key, item]) => `${JSON.stringify(key)}:${canonicalJson(item)}`).join(",")}}`;
 }
 
 function writeRoomToUrl(roomCode: string): void {

@@ -601,3 +601,12 @@ pre {
 .safety-actions {
   align-items: center;
 }
+
+
+.trust-warning {
+  border-bottom-color: var(--line-strong);
+}
+
+.trust-warning strong {
+  text-transform: uppercase;
+}
