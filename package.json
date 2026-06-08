@@ -14,7 +14,8 @@
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",
     "build:host-agent": "pnpm --filter @qev-workspace/host-agent build",
-    "dev:host-agent": "pnpm --filter @qev-workspace/host-agent dev"
+    "dev:host-agent": "pnpm --filter @qev-workspace/host-agent dev",
+    "audit:qev": "node scripts/qev-audit.mjs"
   },
   "packageManager": "pnpm@9.15.0",
   "devDependencies": {

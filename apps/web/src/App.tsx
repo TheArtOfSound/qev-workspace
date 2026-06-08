@@ -161,6 +161,102 @@ export function App() {
         ? `verified${safetyVerifiedAt ? ` at ${new Date(safetyVerifiedAt).toLocaleTimeString()}` : ""}`
         : "unverified";
 
+  const readinessItems: Array<{
+    label: string;
+    status: string;
+    detail: string;
+    state: "ready" | "action" | "waiting" | "blocked";
+    section: WorkspaceSection;
+  }> = [
+    {
+      label: "Identity",
+      status: device ? "ready" : "needed",
+      detail: device ? "This browser has a QEV device identity." : "Create identity before joining or hosting.",
+      state: device ? "ready" : "action",
+      section: "setup",
+    },
+    {
+      label: "Room",
+      status: roomCode && sessionId ? "active" : roomCode ? "join pending" : "needed",
+      detail: roomCode && sessionId ? roomLifecycleStatus : roomCode ? "Join the invite code." : "Create or join a room.",
+      state: roomCode && sessionId ? "ready" : "action",
+      section: "setup",
+    },
+    {
+      label: "Peer",
+      status: peerDevice ? "connected" : "waiting",
+      detail: peerDevice ? `${peerDevice.displayName} is connected.` : "Share invite or wait for the other browser.",
+      state: peerDevice ? "ready" : "waiting",
+      section: "setup",
+    },
+    {
+      label: "Trust",
+      status: canUsePrivateLayer ? "verified" : sessionKey ? "verify safety" : "waiting",
+      detail: canUsePrivateLayer ? "Private actions are unlocked." : sessionKey ? "Compare safety number, then mark verified." : "Waiting for peer QEV key.",
+      state: canUsePrivateLayer ? "ready" : sessionKey ? "action" : "waiting",
+      section: "security",
+    },
+    {
+      label: "Private channel",
+      status: privateChannelStatus.startsWith("verified") ? "proven" : "not proven",
+      detail: privateChannelStatus.startsWith("verified") ? privateChannelStatus : "Start media, then run private-channel proof.",
+      state: privateChannelStatus.startsWith("verified") ? "ready" : canUsePrivateLayer ? "action" : "waiting",
+      section: "security",
+    },
+  ];
+
+  const nextAction: {
+    title: string;
+    detail: string;
+    section: WorkspaceSection;
+  } = !device
+    ? {
+        title: "Create this browser identity",
+        detail: "Go to Setup and create the local QEV identity. Nothing private can be trusted before identity exists.",
+        section: "setup",
+      }
+    : !roomCode || !sessionId
+      ? {
+          title: "Create or join a room",
+          detail: "Use Setup to create a room or paste an invite code. Share the passphrase separately.",
+          section: "setup",
+        }
+      : !peerDevice
+        ? {
+            title: "Connect the second person",
+            detail: "Copy the invite link and wait for the other browser/device to join.",
+            section: "setup",
+          }
+        : !sessionKey
+          ? {
+              title: "Wait for QEV key establishment",
+              detail: "The peer is connected, but the QEV session key is still pending.",
+              section: "security",
+            }
+          : !safetyVerified
+            ? {
+                title: "Verify the safety number",
+                detail: "Compare the safety number with the other person before chat, media, or control.",
+                section: "security",
+              }
+            : !remoteVisible
+              ? {
+                  title: "Start video or screen share",
+                  detail: "The private layer is verified. Start media so the peer data channel opens.",
+                  section: "workspace",
+                }
+              : !privateChannelStatus.startsWith("verified")
+                ? {
+                    title: "Verify the private channel",
+                    detail: "Run the encrypted ping/pong proof so the user can see the private channel is working.",
+                    section: "security",
+                  }
+                : {
+                    title: "Workspace is ready",
+                    detail: "Identity, room, peer, safety verification, media, and private-channel proof are in place.",
+                    section: "workspace",
+                  };
+
   useEffect(() => {
     if (typeof document === "undefined") return;
 
@@ -836,7 +932,7 @@ export function App() {
           ...current,
           {
             ...message,
-            direction: "peer",
+            direction: "peer" as const,
             encrypted: true,
           },
         ].slice(-100));
@@ -878,7 +974,7 @@ export function App() {
         ...current,
         {
           ...message,
-          direction: "me",
+          direction: "me" as const,
           encrypted: true,
         },
       ].slice(-100));
@@ -1232,6 +1328,30 @@ export function App() {
           <button className={themeMode === "system" ? "active" : ""} aria-pressed={themeMode === "system"} onClick={() => setThemeMode("system")}>System</button>
           <button className={themeMode === "light" ? "active" : ""} aria-pressed={themeMode === "light"} onClick={() => setThemeMode("light")}>Light</button>
           <button className={themeMode === "dark" ? "active" : ""} aria-pressed={themeMode === "dark"} onClick={() => setThemeMode("dark")}>Dark</button>
+        </div>
+      </section>
+
+      <section className="operator-strip" aria-label="QEV readiness and next action">
+        <button className="next-action-card" type="button" onClick={() => setActiveSection(nextAction.section)}>
+          <span>Next required action</span>
+          <strong>{nextAction.title}</strong>
+          <small>{nextAction.detail}</small>
+        </button>
+
+        <div className="readiness-strip">
+          {readinessItems.map((item) => (
+            <button
+              key={item.label}
+              type="button"
+              className={`readiness-card ${item.state}`}
+              onClick={() => setActiveSection(item.section)}
+              aria-label={`${item.label}: ${item.status}. ${item.detail}`}
+            >
+              <span>{item.label}</span>
+              <strong>{item.status}</strong>
+              <small>{item.detail}</small>
+            </button>
+          ))}
         </div>
       </section>
 
