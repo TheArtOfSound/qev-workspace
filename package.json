@@ -1,7 +1,7 @@
 {
   "name": "qev-workspace-monorepo",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "dev": "pnpm -r --parallel dev",
@@ -9,6 +9,8 @@
     "build:packages": "pnpm --filter @qev-workspace/protocol build && pnpm --filter @qev-workspace/crypto build",
     "build:web": "pnpm --filter @qev-workspace/web build",
     "build:relay": "pnpm --filter @qev-workspace/protocol build && pnpm --filter @qev-workspace/relay build",
+    "dev:host-desktop": "pnpm --filter @qev-workspace/host-desktop tauri dev",
+    "build:host-desktop": "pnpm --filter @qev-workspace/host-desktop tauri build",
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",
     "build:host-agent": "pnpm --filter @qev-workspace/host-agent build",
