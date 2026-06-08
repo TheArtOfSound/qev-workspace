@@ -1,0 +1,45 @@
+{
+  "counts": {
+    "pass": 7,
+    "fail": 0
+  },
+  "results": [
+    {
+      "status": "PASS",
+      "name": "responsive: desktop critical controls visible/clickable",
+      "detail": "ok"
+    },
+    {
+      "status": "PASS",
+      "name": "responsive: windows-laptop critical controls visible/clickable",
+      "detail": "ok"
+    },
+    {
+      "status": "PASS",
+      "name": "responsive: scaled-windows-laptop critical controls visible/clickable",
+      "detail": "ok"
+    },
+    {
+      "status": "PASS",
+      "name": "responsive: small-laptop critical controls visible/clickable",
+      "detail": "ok"
+    },
+    {
+      "status": "PASS",
+      "name": "responsive: short-browser critical controls visible/clickable",
+      "detail": "ok"
+    },
+    {
+      "status": "PASS",
+      "name": "responsive: mobile critical controls visible/clickable",
+      "detail": "ok"
+    },
+    {
+      "status": "PASS",
+      "name": "responsive: no runtime errors",
+      "detail": "ok"
+    }
+  ],
+  "pageErrors": [],
+  "consoleErrors": []
+}
