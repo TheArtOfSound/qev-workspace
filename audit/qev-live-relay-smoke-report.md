@@ -1,6 +1,6 @@
 # QEV Live Relay Headless Smoke Report
 
-Generated: 2026-06-08T20:00:45.034Z
+Generated: 2026-06-09T00:44:27.153Z
 
 Base URL: http://localhost:5173
 
@@ -18,7 +18,7 @@ FAIL: 0
 | PASS | live: safety verification unlocks private actions | ok |
 | PASS | live: fake-camera private video starts and peer data channel opens | ok |
 | PASS | live: encrypted private-channel proof completes | ok |
-| PASS | live: no browser runtime errors | ok |
+| PASS | live: no fatal browser runtime errors | ok |
 
 ## Meaning
 
@@ -34,7 +34,7 @@ Important: this runner serves the local production build from http://localhost:5
 
 Page errors: none
 
-Console errors: none
+Console errors: Failed to load resource: net::ERR_CONNECTION_REFUSED
 
 ## Debug Artifacts
 

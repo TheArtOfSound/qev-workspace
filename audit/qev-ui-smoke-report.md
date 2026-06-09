@@ -1,8 +1,8 @@
 # QEV Headless UI Smoke Report
 
-Generated: 2026-06-08T19:59:32.913Z
+Generated: 2026-06-09T00:42:52.266Z
 
-Base URL: http://127.0.0.1:53003
+Base URL: http://127.0.0.1:49254
 
 PASS: 7
 FAIL: 0

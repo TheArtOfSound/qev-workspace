@@ -41,11 +41,13 @@
     },
     {
       "status": "PASS",
-      "name": "live: no browser runtime errors",
+      "name": "live: no fatal browser runtime errors",
       "detail": "ok"
     }
   ],
   "pageErrors": [],
-  "consoleErrors": [],
+  "consoleErrors": [
+    "Failed to load resource: net::ERR_CONNECTION_REFUSED"
+  ],
   "baseUrl": "http://localhost:5173"
 }

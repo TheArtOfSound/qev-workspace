@@ -80,7 +80,7 @@ export class QevPeer {
       video: {
         frameRate: 30,
       },
-      audio: false,
+      audio: true,
     });
 
     this.attachLocalStream(stream, "Screen sharing stopped by host/browser.");

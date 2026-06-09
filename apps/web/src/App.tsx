@@ -161,6 +161,18 @@ export function App() {
   const hasActiveHostGrant = Boolean(hostGrant && new Date(hostGrant.expiresAt).getTime() > Date.now());
   const canUsePrivateLayer = Boolean(sessionKey && peerDevice && safetyVerified);
   const canEnableQevMediaFrames = Boolean(frameMediaEncryptionEnabled && canUsePrivateLayer && mediaPrivacy.status === "ready");
+  const mediaActionReason = !roomCode || !sessionId
+    ? "Create or join a room first."
+    : relayStatus !== "open"
+      ? "Relay must be open before media can start."
+      : !peerDevice
+        ? "Wait for the other browser to join."
+        : !sessionKey
+          ? "Waiting for QEV key establishment."
+          : !safetyVerified
+            ? "Compare and verify the safety number first."
+            : "Ready for screen share or video.";
+
   const safetyStatus = !peerDevice
     ? "pending peer"
     : !sessionKey
@@ -1681,7 +1693,23 @@ export function App() {
         </div>
 
         <div className="panel wide remote-stage" data-section="workspace">
-          <h2>Remote screen</h2>
+          <div className="workspace-media-header">
+            <div>
+              <h2>Remote screen</h2>
+              <p>{mediaActionReason}</p>
+            </div>
+            <div className="workspace-media-actions">
+              <button disabled={!canShare || !canUsePrivateLayer} onClick={() => void startShare()}>
+                Share screen + audio
+              </button>
+              <button disabled={!canStartMedia || !canUsePrivateLayer} onClick={() => void startVideoCall()}>
+                Start camera / mic
+              </button>
+              <button className="secondary" disabled={!sessionKey || !peerDevice || safetyVerified} onClick={verifySafetyNumber}>
+                Verify safety
+              </button>
+            </div>
+          </div>
           <div className="video-wrap">
             <video
               ref={remoteVideoRef}
@@ -1689,6 +1717,7 @@ export function App() {
               onLoadedMetadata={(event) => updateVideoAspect("remote", event.currentTarget)}
               onPlay={(event) => updateVideoAspect("remote", event.currentTarget)}
               autoPlay
+              controls={remoteVisible}
               playsInline
               onMouseMove={(event) => void sendEncryptedPointerIntent(event, "pointer.move")}
               onClick={(event) => void sendEncryptedPointerIntent(event, "pointer.click")}

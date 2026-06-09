@@ -2391,3 +2391,47 @@ body {
     max-width: 360px !important;
   }
 }
+/* qev-hide-native-host-strip-until-installers-v1
+   The native host installer strip is not useful until Windows/Mac installers are complete.
+   It was pushing/covering core Workspace media controls on scaled Windows layouts. */
+
+.download-strip {
+  display: none !important;
+}
+
+/* Keep Workspace media actions near the top and always reachable. */
+.shell[data-section="workspace"] .remote-stage {
+  order: -1 !important;
+}
+
+.workspace-media-header {
+  position: relative !important;
+  z-index: 5 !important;
+}
+
+.workspace-media-actions {
+  position: relative !important;
+  z-index: 6 !important;
+}
+
+/* On short/scaled screens, make the Workspace action bar compact. */
+@media (max-width: 1360px), (max-height: 820px) {
+  .workspace-media-header {
+    gap: 8px !important;
+    margin-bottom: 8px !important;
+  }
+
+  .workspace-media-header p {
+    font-size: 11px !important;
+  }
+
+  .workspace-media-actions {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)) !important;
+    width: 100% !important;
+  }
+
+  .workspace-media-actions button {
+    min-height: 38px !important;
+  }
+}

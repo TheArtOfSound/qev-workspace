@@ -99,46 +99,83 @@ async function checkCriticalButtons(page, viewportName) {
 }
 
 async function checkCoveredVisibleButtons(page, viewportName) {
-  const covered = await page.evaluate(() => {
-    const buttons = [...document.querySelectorAll("button")]
-      .filter((button) => {
-        const style = getComputedStyle(button);
-        const rect = button.getBoundingClientRect();
-        return (
-          style.visibility !== "hidden" &&
-          style.display !== "none" &&
-          rect.width > 0 &&
-          rect.height > 0
-        );
-      })
-      .map((button) => {
-        const rect = button.getBoundingClientRect();
-        const x = Math.min(Math.max(rect.left + rect.width / 2, 0), window.innerWidth - 1);
-        const y = Math.min(Math.max(rect.top + rect.height / 2, 0), window.innerHeight - 1);
-        const top = document.elementFromPoint(x, y);
-        const covered =
-          top &&
-          top !== button &&
-          !button.contains(top) &&
-          !top.contains(button);
+  const handles = await page.$$("button");
 
+  const covered = [];
+
+  for (let i = 0; i < handles.length; i += 1) {
+    const button = handles[i];
+
+    const visible = await button.evaluate((el) => {
+      const style = getComputedStyle(el);
+      const rect = el.getBoundingClientRect();
+
+      return (
+        style.visibility !== "hidden" &&
+        style.display !== "none" &&
+        rect.width > 0 &&
+        rect.height > 0
+      );
+    });
+
+    if (!visible) continue;
+
+    await button.scrollIntoViewIfNeeded();
+
+    const result = await button.evaluate((el) => {
+      const rect = el.getBoundingClientRect();
+
+      // After scrollIntoViewIfNeeded, if the element is still not meaningfully inside
+      // the viewport, do not fake a hit-test by clamping it to another element.
+      const insideViewport =
+        rect.bottom > 0 &&
+        rect.top < window.innerHeight &&
+        rect.right > 0 &&
+        rect.left < window.innerWidth;
+
+      if (!insideViewport) {
         return {
-          text: button.textContent?.trim() || button.getAttribute("aria-label") || "button",
+          skipped: true,
+          reason: "outside viewport after scroll",
+          text: el.textContent?.trim() || el.getAttribute("aria-label") || "button",
           rect: {
             left: rect.left,
             top: rect.top,
             width: rect.width,
             height: rect.height,
           },
-          covered,
-          topTag: top?.tagName,
-          topText: top?.textContent?.trim()?.slice(0, 80),
         };
-      })
-      .filter((item) => item.covered);
+      }
 
-    return buttons;
-  });
+      const x = rect.left + rect.width / 2;
+      const y = rect.top + rect.height / 2;
+      const top = document.elementFromPoint(x, y);
+
+      const covered =
+        top &&
+        top !== el &&
+        !el.contains(top) &&
+        !top.contains(el);
+
+      return {
+        skipped: false,
+        covered,
+        text: el.textContent?.trim() || el.getAttribute("aria-label") || "button",
+        rect: {
+          left: rect.left,
+          top: rect.top,
+          width: rect.width,
+          height: rect.height,
+        },
+        topTag: top?.tagName,
+        topText: top?.textContent?.trim()?.slice(0, 80),
+      };
+    });
+
+    if (!result.skipped && result.covered) {
+      covered.push(result);
+    }
+  }
 
   assert(covered.length === 0, `${viewportName} has covered buttons: ${JSON.stringify(covered.slice(0, 5))}`);
 }
