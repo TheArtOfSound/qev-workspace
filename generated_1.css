@@ -1,0 +1,82 @@
+:root {
+  --background: #020617;
+  --surface: #071a33;
+  --surface-elevated: #0b2a4a;
+  --primary-blue: #1d4ed8;
+  --electric-blue: #38bdf8;
+  --cyan-accent: #22d3ee;
+  --text: #e0f2fe;
+  --muted-text: #93c5fd;
+  --border: rgba(56, 189, 248, 0.35);
+  --glow: rgba(56, 189, 248, 0.45);
+}
+
+body {
+  background-color: var(--background);
+  color: var(--text);
+}
+
+button {
+  background-color: var(--primary-blue);
+  color: var(--text);
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  box-shadow: 0 0 10px var(--glow);
+}
+
+button:hover {
+  background-color: var(--electric-blue);
+}
+
+.card {
+  background-color: var(--surface);
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 0 10px var(--glow);
+}
+
+.panel {
+  background-color: var(--surface-elevated);
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 0 10px var(--glow);
+}
+
+.nav {
+  background-color: var(--surface);
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  box-shadow: 0 0 10px var(--glow);
+}
+
+.nav-item {
+  color: var(--text);
+  padding: 10px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.nav-item:hover {
+  background-color: var(--electric-blue);
+}
+
+.input {
+  background-color: var(--surface);
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  box-shadow: 0 0 10px var(--glow);
+}
+
+.modal {
+  background-color: var(--surface);
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 0 10px var(--glow);
+}
