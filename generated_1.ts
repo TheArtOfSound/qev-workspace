@@ -1,99 +1,62 @@
-import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
-import {
-  BrowserQevVaultAdapter,
-  decryptJson,
-  derivePeerSessionKey,
-  encryptJson,
-  sessionFingerprint,
-  type DeviceIdentity,
-} from "@qev-workspace/crypto";
-import {
-  createId,
-  type ControlGrantPayload,
-  type ControlIntentPlaintext,
-  type DeviceIdentityPublic,
-  type EncryptedPayload,
-  type PointerPayload,
-  type ProtocolEnvelope,
-} from "@qev-workspace/protocol";
-import { SignalingClient, type SignalingStatus } from "./signaling";
-import { QevPeer } from "./webrtc";
-import { detectMediaPrivacyCapability, type MediaPrivacyCapability } from "./mediaPrivacy";
-import { buildAgentCommand, buildAgentLaunchUrl, createPointerGrant, isGrantActive, type ControlGrant } from "./control";
+import { useState } from "react";
 
-const DEFAULT_RELAY_URL = import.meta.env.VITE_RELAY_URL ?? "wss://qev-workspace.onrender.com/ws";
-const LOCAL_AGENT_URL = "http://127.0.0.1:39483";
-const TRUSTED_PEERS_STORAGE_KEY = "qev.workspace.trustedPeers.v1";
-
-type SessionStatus = "none" | "created" | "joined" | "peer-connected" | "sharing" | "viewing" | "ended";
-
-type PrivateChatPayload = {
-  kind: "qev.chat.v1";
+interface OnboardingStep {
   id: string;
-  body: string;
-  sender: string;
-  sentAt: string;
-  roomLockHash?: string | null;
-};
-
-type PrivateProofPayload = {
-  kind: "qev.private-proof.v1";
-  proofId: string;
-  mode: "ping" | "pong";
-  senderDeviceId: string;
-  senderName: string;
-  roomCode: string;
-  sessionId: string;
-  roomLockHash?: string | null;
-  sentAt: string;
-};
-
-type ChatEntry = PrivateChatPayload & {
-  direction: "me" | "peer" | "system";
-  encrypted: boolean;
-};
-
-type TrustedPeerRecord = {
-  deviceId: string;
-  displayName: string;
-  publicKeyFingerprint: string;
-  trustedAt: string;
-  lastSeenAt: string;
-};
-
-type QevEncryptedExportFile = {
-  version: "qev-encrypted-transcript-v1";
-  alg: "PBKDF2-SHA256-AES-GCM";
-  kdf: {
-    name: "PBKDF2";
-    hash: "SHA-256";
-    iterations: number;
-    salt: string;
-  };
-  iv: string;
-  ciphertext: string;
-  exportedAt: string;
-};
-
-type WorkspaceSection = "workspace" | "setup" | "security" | "controls" | "logs";
-type ThemeMode = "system" | "light" | "dark";
-
-export function App() {
-  const vault = useMemo(() => {
-    const storedVault = localStorage.getItem(TRUSTED_PEERS_STORAGE_KEY);
-    if (storedVault) {
-      return JSON.parse(storedVault);
-    }
-    return {};
-  }, []);
-
-  useEffect(() => {
-    // Introduce boundary around App.tsx
-    const signalingClient = new SignalingClient(DEFAULT_RELAY_URL);
-    signalingClient.connect().catch((error) => {
-      console.error("Signaling client error:", error);
-    });
-  }, []);
-
-  // ... rest of the code remains the same ...
+  title: string;
+  description: string;
+  nextStep: () => void;
+  previousStep: () => void;
 }
+
+const onboardingSteps: OnboardingStep[] = [
+  {
+    id: "step-1",
+    title: "Welcome to QEV Workspace",
+    description: "This is a secure workspace for collaboration and communication.",
+    nextStep: () => console.log("Next step"),
+    previousStep: () => console.log("Previous step"),
+  },
+  {
+    id: "step-2",
+    title: "Getting Started",
+    description: "To get started, please create a new workspace or join an existing one.",
+    nextStep: () => console.log("Next step"),
+    previousStep: () => console.log("Previous step"),
+  },
+  {
+    id: "step-3",
+    title: "Security",
+    description: "Your workspace is secure and encrypted. Only authorized users can access it.",
+    nextStep: () => console.log("Next step"),
+    previousStep: () => console.log("Previous step"),
+  },
+];
+
+const Onboarding = () => {
+  const [currentStep, setCurrentStep] = useState(onboardingSteps[0]);
+
+  const handleNextStep = () => {
+    const nextStepIndex = onboardingSteps.indexOf(currentStep) + 1;
+    if (nextStepIndex < onboardingSteps.length) {
+      setCurrentStep(onboardingSteps[nextStepIndex]);
+    }
+  };
+
+  const handlePreviousStep = () => {
+    const previousStepIndex = onboardingSteps.indexOf(currentStep) - 1;
+    if (previousStepIndex >= 0) {
+      setCurrentStep(onboardingSteps[previousStepIndex]);
+    }
+  };
+
+  return (
+    <div>
+      <h2>{currentStep.title}</h2>
+      <p>{currentStep.description}</p>
+      <button onClick={handlePreviousStep}>Previous</button>
+      <button onClick={handleNextStep}>Next</button>
+    </div>
+  );
+};
+
+export default Onboarding;
