@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QEV Workspace</title>
+  <style>
+    /* Global Styles */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #000;
+      color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      width: 100vw;
+    }
+    /* Hero Section */
+    .hero {
+      position: relative;
+      width: 100%;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background-image: linear-gradient(to bottom, #000, #333);
+      background-size: 100% 300px;
+      background-position: 0% 100%;
+      animation: gradient 10s ease-in-out infinite;
+    }
+    @keyframes gradient {
+      0% {
+        background-position: 0% 100%;
+      }
+      100% {
+        background-position: 100% 0%;
+      }
+    }
+    .hero::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: radial-gradient(#fff, #ccc);
+      background-size: 100% 100%;
+      background-position: 0% 0%;
+      animation: glow 5s ease-in-out infinite;
+    }
+    @keyframes glow {
+      0% {
+        background-position: 0% 0%;
+      }
+      100% {
+        background-position: 100% 100%;
+      }
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 100%;
+      height: 100%;
+      background-image: linear-gradient(to bottom, #000, #333);
+      background-size: 100% 300px;
+      background-position: 0% 100%;
+      animation: gradient 10s ease-in-out infinite;
+    }
+    .hero-title {
+      position: relative;
+      z-index: 1;
+      font-size: 48px;
+      font-weight: bold;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .hero-subtitle {
+      position: relative;
+      z-index: 1;
+      font-size: 24px;
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    /* Feature Cards */
+    .feature-cards {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+    .feature-card {
+      position: relative;
+      width: 200px;
+      height: 200px;
+      background-color: #333;
+      border-radius: 10px;
+      padding: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    }
+    .feature-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: radial-gradient(#fff, #ccc);
+      background-size: 100% 100%;
+      background-position: 0% 0%;
+      animation: glow 5s ease-in-out infinite;
+    }
+    .feature-card::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 100%;
+      height: 100%;
+      background-image: linear-gradient(to bottom, #000, #333);
+      background-size: 100% 300px;
+      background-position: 0% 100%;
+      animation: gradient 10s ease-in-out infinite;
+    }
+    .feature-card-title {
+      position: relative;
+      z-index: 1;
+      font-size: 18px;
+      font-weight: bold;
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    .feature-card-description {
+      position: relative;
+      z-index: 1;
+      font-size: 14px;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    /* Protocol Status Panel */
+    .protocol-status {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .protocol-status::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: radial-gradient(#fff, #ccc);
+      background-size: 100% 100%;
+      background-position: 0% 0%;
+      animation: glow 5s ease-in-out infinite;
+    }
+    .protocol-status::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 100%;
+      height: 100%;
+      background-image: linear-gradient(to bottom, #000, #333);
+      background-size: 100% 300px;
+      background-position: 0% 100%;
+      animation: gradient 10s ease-in-out infinite;
+    }
+    .protocol-status-title {
+      position: relative;
+      z-index: 1;
+      font-size: 18px;
+      font-weight: bold;
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    .protocol-status-description {
+      position: relative;
+      z-index: 1;
+      font-size: 14px;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    /* Button */
+    .button {
+      position: relative;
+      z-index: 1;
+      display: block;
+      width: 200px;
+      height: 50px;
+      background-color: #333;
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 18px;
+      font-weight: bold;
+      text-align: center;
+      cursor: pointer;
+    }
+    .button::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: radial-gradient(#fff, #ccc);
+      background-size: 100% 100%;
+      background-position: 0% 0%;
+      animation: glow 5s ease-in-out infinite;
+    }
+    .button::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 100%;
+      height: 100%;
+      background-image: linear-gradient(to bottom, #000, #333);
+      background-size: 100% 300px;
+      background-position: 0% 100%;
+      animation: gradient 10s ease-in-out infinite;
+    }
+    /* Footer */
+    .footer {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .footer::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: radial-gradient(#fff, #ccc);
+      background-size: 100% 100%;
+      background-position: 0% 0%;
+      animation: glow 5s ease-in-out infinite;
+    }
+    .footer::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 100%;
+      height: 100%;
+      background-image: linear-gradient(to bottom, #000, #333);
+      background-size: 100% 300px;
+      background-position: 0% 100%;
+      animation: gradient 10s ease-in-out infinite;
+    }
+    .footer-title {
+      position: relative;
+      z-index: 1;
+      font-size: 18px;
+      font-weight: bold;
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    .footer-description {
+      position: relative;
+      z-index: 1;
+      font-size: 14px;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="hero">
+    <div class="hero-title">QEV WORKSPACE</div>
+    <div class="hero-subtitle">Verifiable AI workspaces for encrypted files, signed actions, and traceable agent output.</div>
+  </div>
+  <div class="feature-cards">
+    <div class="feature-card">
+      <div class="feature-card-title">Lock</div>
+      <div class="feature-card-description">Encrypt sensitive workspace artifacts before exposure.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-card-title">Verify</div>
+      <div class="feature-card-description">Sign outputs and prove what changed.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-card-title">Trace</div>
+      <div class="feature-card-description">Preserve a visible chain of custody for agent work.</div>
+    </div>
+  </div>
+  <div class="protocol-status">
+    <div class="protocol-status-title">Protocol: BRY-NFET-SX</div>
+    <div class="protocol-status-description">Vault State: Armed</div>
+    <div class="protocol-status-description">Signature Layer: Ed25519</div>
+    <div class="protocol-status-description">Encryption: XChaCha20-Poly1305</div>
+    <div class="protocol-status-description">Hash: SHA-256</div>
+    <div class="protocol-status-description">Workspace Integrity: Verified</div>
+  </div>
+  <button class="button">Enter Workspace</button>
+  <div class="footer">
+    <div class="footer-title">Qira LLC · QEV Secure · Public Trust Surface</div>
+    <div class="footer-description">Protect your workspace with QEV.</div>
+  </div>
+  <script>
+    // Vanilla JS for button click event
+    const button = document.querySelector('.button');
+    button.addEventListener('click', () => {
+      console.log('Button clicked!');
+    });
+  </script>
+</body>
+</html>
