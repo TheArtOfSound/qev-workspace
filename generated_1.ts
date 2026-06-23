@@ -1,62 +1,54 @@
-import { useState } from "react";
+import React from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
-interface OnboardingStep {
-  id: string;
-  title: string;
-  description: string;
-  nextStep: () => void;
-  previousStep: () => void;
-}
+const OnboardingScreen = () => {
+  const [step, setStep] = useState(0);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const navigate = useNavigate();
 
-const onboardingSteps: OnboardingStep[] = [
-  {
-    id: "step-1",
-    title: "Welcome to QEV Workspace",
-    description: "This is a secure workspace for collaboration and communication.",
-    nextStep: () => console.log("Next step"),
-    previousStep: () => console.log("Previous step"),
-  },
-  {
-    id: "step-2",
-    title: "Getting Started",
-    description: "To get started, please create a new workspace or join an existing one.",
-    nextStep: () => console.log("Next step"),
-    previousStep: () => console.log("Previous step"),
-  },
-  {
-    id: "step-3",
-    title: "Security",
-    description: "Your workspace is secure and encrypted. Only authorized users can access it.",
-    nextStep: () => console.log("Next step"),
-    previousStep: () => console.log("Previous step"),
-  },
-];
-
-const Onboarding = () => {
-  const [currentStep, setCurrentStep] = useState(onboardingSteps[0]);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setStep((prevStep) => prevStep + 1);
+    }, 3000);
+    return () => clearInterval(timer);
+  }, []);
 
   const handleNextStep = () => {
-    const nextStepIndex = onboardingSteps.indexOf(currentStep) + 1;
-    if (nextStepIndex < onboardingSteps.length) {
-      setCurrentStep(onboardingSteps[nextStepIndex]);
-    }
-  };
-
-  const handlePreviousStep = () => {
-    const previousStepIndex = onboardingSteps.indexOf(currentStep) - 1;
-    if (previousStepIndex >= 0) {
-      setCurrentStep(onboardingSteps[previousStepIndex]);
+    if (step === 2) {
+      navigate('/dashboard');
+    } else {
+      setStep((prevStep) => prevStep + 1);
     }
   };
 
   return (
-    <div>
-      <h2>{currentStep.title}</h2>
-      <p>{currentStep.description}</p>
-      <button onClick={handlePreviousStep}>Previous</button>
-      <button onClick={handleNextStep}>Next</button>
+    <div className="onboarding-screen">
+      <h1>Onboarding Screen</h1>
+      {step === 0 && (
+        <div>
+          <h2>Welcome!</h2>
+          <p>Please enter your name:</p>
+          <input type="text" value={name} onChange={(e) => setName(e.target.value)} />
+        </div>
+      )}
+      {step === 1 && (
+        <div>
+          <h2>Next step!</h2>
+          <p>Please enter your email:</p>
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        </div>
+      )}
+      {step === 2 && (
+        <div>
+          <h2>Final step!</h2>
+          <p>Thank you for completing the onboarding process!</p>
+          <button onClick={handleNextStep}>Continue</button>
+        </div>
+      )}
     </div>
   );
 };
 
-export default Onboarding;
+export default OnboardingScreen;
