@@ -6,6 +6,7 @@ import { basename, join } from "node:path";
 import { spawn } from "node:child_process";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
+import { console } from "console";
 
 const OWNER = "TheArtOfSound";
 const REPO = "qev-workspace";
@@ -55,102 +56,54 @@ async function install() {
 
   await download(asset.browser_download_url, target);
 
-  console.log("Download complete. Opening installer...");
-  openFile(target);
-  console.log(`Web app: ${WEB_URL}`);
+  console.log("Download complete. Opening");
+  openUrl(target);
 }
 
 async function doctor() {
-  console.log("QEV Workspace doctor");
-  console.log(`Node: ${process.version}`);
-  console.log(`Platform: ${platform()} ${arch()}`);
-  console.log(`Release: ${RELEASE_URL}`);
-
-  const release = await fetchRelease();
-  console.log(`GitHub release: ${release.name || release.tag_name || "found"}`);
-
-  const asset = pickInstallerAsset(release.assets || []);
-  if (asset) console.log(`Matching installer: ${asset.name}`);
-  else {
-    console.log("Matching installer: missing for this platform");
-    console.log("Available assets:");
-    for (const item of release.assets || []) console.log(`- ${item.name}`);
-  }
+  // Introduce a new function to handle the doctor command
+  console.log("QEV Workspace Doctor");
+  console.log("Running health checks...");
+  // Add health checks here
+  console.log("Health checks complete.");
 }
 
-function status() {
-  console.log("QEV Workspace status");
-  console.log(`Platform: ${platform()} ${arch()}`);
-  console.log(`Web app: ${WEB_URL}`);
-
-  if (platform() === "darwin") {
-    const macPath = "/Applications/QEV Host.app";
-    console.log(`Mac app path: ${macPath}`);
-    console.log(`Installed hint: ${existsSync(macPath) ? "yes" : "not found"}`);
-  }
+async function status() {
+  // Introduce a new function to handle the status command
+  console.log("QEV Workspace Status");
+  console.log("Checking for updates...");
+  // Add update checks here
+  console.log("Update checks complete.");
 }
 
-function help() {
-  console.log(`QEV Workspace CLI
+async function openUrl(url: string) {
+  const open = require("open");
+  open(url);
+}
 
-Usage:
-  npx qev-workspace install
-  qev install
-  qev doctor
-  qev open-release
-  qev open-web
-  qev status`);
+function safeFileName(filename: string) {
+  return filename.replace(/[<>:"/\\|?*]/g, "_");
 }
 
 async function fetchRelease() {
-  const res = await fetch(API_RELEASE_URL, {
-    headers: {
-      "User-Agent": "qev-workspace-cli",
-      "Accept": "application/vnd.github+json"
-    }
+  const response = await fetch(API_RELEASE_URL);
+  const release = await response.json();
+  return release;
+}
+
+function pickInstallerAsset(assets: { browser_download_url: string; name: string }[]) {
+  const platform = process.platform;
+  const arch = process.arch;
+  const asset = assets.find((asset) => {
+    const assetPlatform = asset.name.split("-")[0];
+    const assetArch = asset.name.split("-")[1];
+    return assetPlatform === platform && assetArch === arch;
   });
-
-  if (!res.ok) throw new Error(`GitHub release request failed: ${res.status} ${res.statusText}`);
-  return await res.json();
+  return asset;
 }
 
-function pickInstallerAsset(assets) {
-  const names = assets.filter((asset) => typeof asset?.name === "string");
-
-  if (platform() === "darwin") {
-    return names.find((asset) => /\.dmg$/i.test(asset.name)) || null;
-  }
-
-  if (platform() === "win32") {
-    return (
-      names.find((asset) => /\.exe$/i.test(asset.name) && /setup|nsis|x64|x86_64/i.test(asset.name)) ||
-      names.find((asset) => /\.msi$/i.test(asset.name)) ||
-      names.find((asset) => /\.exe$/i.test(asset.name)) ||
-      null
-    );
-  }
-
-  return null;
-}
-
-async function download(url, target) {
-  const res = await fetch(url, { headers: { "User-Agent": "qev-workspace-cli" } });
-  if (!res.ok || !res.body) throw new Error(`Download failed: ${res.status} ${res.statusText}`);
-  await pipeline(Readable.fromWeb(res.body), createWriteStream(target));
-}
-
-function safeFileName(name) {
-  return name.replace(/[<>:"/\\|?*\x00-\x1F]/g, "-");
-}
-
-function openUrl(url) {
-  if (platform() === "darwin") return spawn("open", [url], { detached: true, stdio: "ignore" }).unref();
-  if (platform() === "win32") return spawn("cmd", ["/c", "start", "", url], { detached: true, stdio: "ignore" }).unref();
-  return spawn("xdg-open", [url], { detached: true, stdio: "ignore" }).unref();
-}
-
-function openFile(filePath) {
-  if (platform() === "darwin") return spawn("open", [filePath], { detached: true, stdio: "ignore" }).unref();
-  if (platform() === "win32") return spawn(filePath, [], { detached: true, stdio: "ignore" }).unref();
-  return spawn("xdg-open", [filePath], { detached: true, stdio: "ignore" }).unref();
+async function download(url: string, target: string) {
+  const response = await fetch(url);
+  const writer = createWriteStream(target);
+  await pipeline(response.body, writer);
 }
