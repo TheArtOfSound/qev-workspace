@@ -1,10 +1,13 @@
 import { expect, test } from "@playwright/test";
 
+const TEST_TOKEN = "test.header.signature";
+
 test("sending room messages updates the UI and survives refresh", async ({ page, request }) => {
   const roomName = `Chat room ${Date.now()}`;
   const firstContent = `First chat message ${Date.now()}`;
   const secondContent = `Second chat message ${Date.now()}`;
 
+  await page.addInitScript((token) => localStorage.setItem("qev_token", token), TEST_TOKEN);
   await page.goto("/");
   await page.getByTestId("room-name-input").fill(roomName);
   await page.getByTestId("create-room-button").click();
@@ -50,4 +53,5 @@ test("sending room messages updates the UI and survives refresh", async ({ page,
   await expect(page.getByTestId("chat-box")).toBeVisible();
   await expect(page.getByTestId("chat-message").filter({ hasText: firstContent })).toBeVisible();
   await expect(page.getByTestId("chat-message").filter({ hasText: secondContent })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("qev_token"))).toBe(TEST_TOKEN);
 });
