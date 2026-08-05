@@ -1,0 +1,71 @@
+name: Voice Tests
+
+on:
+  pull_request:
+    paths:
+      - "apps/relay/src/mockAudio.ts"
+      - "apps/relay/src/mockRooms.ts"
+      - "apps/relay/src/server.ts"
+      - "apps/web/src/audioWebrtc.ts"
+      - "apps/web/src/webrtc.ts"
+      - "apps/web/src/VoiceChannel.tsx"
+      - "apps/web/src/RoomView.tsx"
+      - "apps/web/src/rooms.css"
+      - "tests/voice.integration.spec.ts"
+      - "playwright.voice.config.ts"
+      - "package.json"
+      - ".github/workflows/voice-tests.yml"
+  push:
+    branches:
+      - "agent/**"
+    paths:
+      - "apps/relay/src/mockAudio.ts"
+      - "apps/relay/src/mockRooms.ts"
+      - "apps/relay/src/server.ts"
+      - "apps/web/src/audioWebrtc.ts"
+      - "apps/web/src/webrtc.ts"
+      - "apps/web/src/VoiceChannel.tsx"
+      - "apps/web/src/RoomView.tsx"
+      - "apps/web/src/rooms.css"
+      - "tests/voice.integration.spec.ts"
+      - "playwright.voice.config.ts"
+      - "package.json"
+      - ".github/workflows/voice-tests.yml"
+  workflow_dispatch:
+
+jobs:
+  test-voice:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile=false
+
+      - name: Build shared packages
+        run: pnpm run build:packages
+
+      - name: Typecheck relay and web
+        run: |
+          pnpm --filter @qev-workspace/relay typecheck
+          pnpm --filter @qev-workspace/web typecheck
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run two-browser voice test
+        run: pnpm exec playwright test --config playwright.voice.config.ts tests/voice.integration.spec.ts
