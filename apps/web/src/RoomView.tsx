@@ -1,3 +1,4 @@
+import { ChatBox } from "./ChatBox";
 import { App as WorkspaceApp } from "./WorkspaceApp";
 import "./rooms.css";
 
@@ -18,6 +19,7 @@ export function RoomView({ roomId, roomName, onLeave }: RoomViewProps) {
         </div>
         <button type="button" onClick={onLeave}>Leave room</button>
       </header>
+      <ChatBox roomId={roomId} />
       <WorkspaceApp />
     </div>
   );
