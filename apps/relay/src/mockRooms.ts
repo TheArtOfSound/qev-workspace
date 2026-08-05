@@ -1,5 +1,6 @@
 import { createId } from "@qev-workspace/protocol";
 import type { FastifyInstance } from "fastify";
+import { registerMockAuthRoutes } from "./mockAuth.js";
 
 type MockRoom = {
   id: string;
@@ -23,6 +24,8 @@ type RoomParams = {
 export const mockRooms: MockRoom[] = [];
 
 export function registerMockRoomRoutes(app: FastifyInstance): void {
+  registerMockAuthRoutes(app);
+
   app.get("/rooms", async () => mockRooms.map(cloneRoom));
 
   app.post<{ Body: CreateRoomBody }>("/rooms", async (request, reply) => {
