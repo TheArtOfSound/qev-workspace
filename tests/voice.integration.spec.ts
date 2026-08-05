@@ -5,6 +5,8 @@ type RoomResponse = {
   name: string;
 };
 
+const TEST_TOKEN = "test.header.signature";
+
 test("two browser windows exchange real WebRTC audio tracks", async ({ browser, request }) => {
   const roomName = `Voice room ${Date.now()}`;
   const roomResponse = await request.post("http://localhost:8787/rooms", {
@@ -62,11 +64,12 @@ async function createVoiceContext(
   });
 
   await context.addInitScript(
-    ({ roomId, roomName }) => {
+    ({ roomId, roomName, token }) => {
+      localStorage.setItem("qev_token", token);
       localStorage.setItem("currentRoom", roomId);
       localStorage.setItem("currentRoomName", roomName);
     },
-    { roomId: room.id, roomName: room.name },
+    { roomId: room.id, roomName: room.name, token: TEST_TOKEN },
   );
 
   return context;
