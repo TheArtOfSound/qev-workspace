@@ -10,6 +10,7 @@ import {
   type ProtocolEnvelope,
   type RoomCreatedPayload,
 } from "@qev-workspace/protocol";
+import { registerMockChatRoutes } from "./mockChat.js";
 import { registerMockRoomRoutes } from "./mockRooms.js";
 
 const PORT = Number(process.env.PORT ?? 8787);
@@ -63,6 +64,7 @@ app.addHook("onRequest", async (request, reply) => {
 });
 
 registerMockRoomRoutes(app);
+registerMockChatRoutes(app);
 
 app.get("/", async () => ({
   ok: true,
