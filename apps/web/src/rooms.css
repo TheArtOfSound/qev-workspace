@@ -1,5 +1,6 @@
 .persistent-rooms,
 .active-room-bar,
+.voice-channel,
 .room-chat {
   width: min(1180px, calc(100% - 32px));
   margin: 24px auto;
@@ -11,6 +12,7 @@
 }
 
 .persistent-rooms,
+.voice-channel,
 .room-chat {
   padding: 24px;
 }
@@ -24,6 +26,7 @@
 
 .persistent-rooms__header h2,
 .persistent-room-card h3,
+.voice-channel h2,
 .room-chat h2 {
   margin: 4px 0 8px;
 }
@@ -93,11 +96,15 @@
   color: #fca5a5;
 }
 
-.active-room-bar {
+.active-room-bar,
+.voice-channel__header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 20px;
+}
+
+.active-room-bar {
   padding: 16px 20px;
 }
 
@@ -111,6 +118,58 @@
   font-size: 0.82rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
+}
+
+.voice-channel__actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.voice-channel__status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--muted-text, #93c5fd);
+}
+
+.voice-channel__status::before {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #94a3b8;
+  content: "";
+  box-shadow: 0 0 10px currentColor;
+}
+
+.voice-channel__status--connected::before {
+  background: #4ade80;
+}
+
+.voice-channel__status--connecting::before,
+.voice-channel__status--requesting::before {
+  background: #facc15;
+}
+
+.voice-channel__status--error::before {
+  background: #f87171;
+}
+
+.voice-channel__playback {
+  margin-top: 16px;
+}
+
+.voice-channel audio,
+.voice-channel__diagnostics {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .room-chat__header {
@@ -170,10 +229,19 @@
 
   .persistent-rooms__create-row,
   .active-room-bar,
+  .voice-channel__header,
   .room-chat__header,
   .room-chat__composer > div {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .voice-channel__actions {
+    justify-content: stretch;
+  }
+
+  .voice-channel__actions button {
+    flex: 1;
   }
 
   .room-chat__sender {
