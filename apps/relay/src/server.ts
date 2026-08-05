@@ -10,6 +10,7 @@ import {
   type ProtocolEnvelope,
   type RoomCreatedPayload,
 } from "@qev-workspace/protocol";
+import { registerMockRoomRoutes } from "./mockRooms.js";
 
 const PORT = Number(process.env.PORT ?? 8787);
 const ROOM_TTL_MS = Number(process.env.ROOM_TTL_MS ?? 5 * 60 * 1000);
@@ -47,6 +48,21 @@ const socketToRoom = new WeakMap<WebSocketLike, { roomCode: string; peerId: stri
 
 const app = Fastify({ logger: true });
 await app.register(websocket);
+
+app.addHook("onRequest", async (request, reply) => {
+  const origin = request.headers.origin;
+
+  if (origin && isAllowedOrigin(origin)) {
+    reply.header("access-control-allow-origin", origin);
+    reply.header("access-control-allow-methods", "GET,POST,OPTIONS");
+    reply.header("access-control-allow-headers", "content-type");
+    reply.header("vary", "Origin");
+  }
+
+  if (request.method === "OPTIONS") return reply.code(204).send();
+});
+
+registerMockRoomRoutes(app);
 
 app.get("/", async () => ({
   ok: true,
