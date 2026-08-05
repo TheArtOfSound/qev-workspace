@@ -1,0 +1,119 @@
+.persistent-rooms,
+.active-room-bar {
+  width: min(1180px, calc(100% - 32px));
+  margin: 24px auto;
+  border: 1px solid var(--border, rgba(56, 189, 248, 0.35));
+  border-radius: 18px;
+  background: var(--surface, #071a33);
+  color: var(--text, #e0f2fe);
+  box-shadow: 0 18px 50px rgba(2, 6, 23, 0.24);
+}
+
+.persistent-rooms {
+  padding: 24px;
+}
+
+.persistent-rooms__header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 420px);
+  gap: 28px;
+  align-items: end;
+}
+
+.persistent-rooms__header h2,
+.persistent-room-card h3 {
+  margin: 4px 0 8px;
+}
+
+.persistent-rooms__header p,
+.persistent-room-card p {
+  color: var(--muted-text, #93c5fd);
+}
+
+.persistent-rooms__form label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 700;
+}
+
+.persistent-rooms__create-row {
+  display: flex;
+  gap: 10px;
+}
+
+.persistent-rooms__create-row input {
+  min-width: 0;
+  flex: 1;
+  padding: 11px 12px;
+  border: 1px solid var(--border, rgba(56, 189, 248, 0.35));
+  border-radius: 10px;
+  background: var(--background, #020617);
+  color: inherit;
+}
+
+.persistent-rooms__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.persistent-room-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  padding: 16px;
+  border: 1px solid var(--border, rgba(56, 189, 248, 0.35));
+  border-radius: 14px;
+  background: var(--surface-elevated, #0b2a4a);
+}
+
+.persistent-room-card code,
+.active-room-bar code {
+  display: block;
+  overflow-wrap: anywhere;
+  color: var(--cyan-accent, #22d3ee);
+}
+
+.persistent-rooms__empty {
+  margin: 22px 0 0;
+  color: var(--muted-text, #93c5fd);
+}
+
+.persistent-rooms__error {
+  margin: 16px 0 0;
+  color: #fca5a5;
+}
+
+.active-room-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  padding: 16px 20px;
+}
+
+.active-room-bar span,
+.active-room-bar strong {
+  display: block;
+}
+
+.active-room-bar span {
+  color: var(--muted-text, #93c5fd);
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+@media (max-width: 760px) {
+  .persistent-rooms__header {
+    grid-template-columns: 1fr;
+  }
+
+  .persistent-rooms__create-row,
+  .active-room-bar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
