@@ -3,7 +3,7 @@ import type { Room } from "./types";
 const CURRENT_ROOM_STORAGE_KEY = "currentRoom";
 const MEMBER_STORAGE_KEY = "qev.workspace.memberId";
 
-function getRoomsBaseUrl(): string {
+export function getRelayHttpBaseUrl(): string {
   const fallback = import.meta.env.DEV ? "http://localhost:8787" : "https://qev-workspace.onrender.com";
   const configured = import.meta.env.VITE_ROOMS_URL ?? import.meta.env.VITE_RELAY_URL ?? fallback;
 
@@ -26,11 +26,11 @@ function getMemberId(): string {
   return memberId;
 }
 
-async function request(path: string, init?: RequestInit): Promise<Response> {
+export async function relayRequest(path: string, init?: RequestInit): Promise<Response> {
   const headers = new Headers(init?.headers);
   headers.set("content-type", "application/json");
 
-  const response = await fetch(`${getRoomsBaseUrl()}${path}`, {
+  const response = await fetch(`${getRelayHttpBaseUrl()}${path}`, {
     ...init,
     headers,
   });
@@ -45,7 +45,7 @@ async function request(path: string, init?: RequestInit): Promise<Response> {
       // The status line is sufficient when the response is not JSON.
     }
 
-    throw new Error(`Rooms request failed: ${detail}`);
+    throw new Error(`Relay request failed: ${detail}`);
   }
 
   return response;
@@ -55,7 +55,7 @@ export async function createRoom(name: string): Promise<Room> {
   const normalizedName = name.trim();
   if (!normalizedName) throw new Error("Room name is required.");
 
-  const response = await request("/rooms", {
+  const response = await relayRequest("/rooms", {
     method: "POST",
     body: JSON.stringify({
       name: normalizedName,
@@ -67,7 +67,7 @@ export async function createRoom(name: string): Promise<Room> {
 }
 
 export async function getRooms(): Promise<Room[]> {
-  const response = await request("/rooms");
+  const response = await relayRequest("/rooms");
   return (await response.json()) as Room[];
 }
 
@@ -75,7 +75,7 @@ export async function joinRoom(roomId: string): Promise<void> {
   const normalizedRoomId = roomId.trim();
   if (!normalizedRoomId) throw new Error("Room id is required.");
 
-  await request(`/rooms/${encodeURIComponent(normalizedRoomId)}/join`, {
+  await relayRequest(`/rooms/${encodeURIComponent(normalizedRoomId)}/join`, {
     method: "POST",
     body: JSON.stringify({ memberId: getMemberId() }),
   });
