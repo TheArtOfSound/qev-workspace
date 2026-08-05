@@ -25,7 +25,8 @@
     "smoke:responsive": "node scripts/qev-responsive-smoke.mjs",
     "test:rooms": "pnpm run build:packages && playwright test --config playwright.rooms.config.ts tests/rooms.integration.spec.ts",
     "test:chat": "pnpm run build:packages && pnpm --filter @qev-workspace/relay test:chat && playwright test --config playwright.rooms.config.ts tests/chat.integration.spec.ts",
-    "test:voice": "pnpm run build:packages && playwright test --config playwright.voice.config.ts tests/voice.integration.spec.ts"
+    "test:voice": "pnpm run build:packages && playwright test --config playwright.voice.config.ts tests/voice.integration.spec.ts",
+    "test:auth": "pnpm --filter @qev-workspace/web test:auth"
   },
   "packageManager": "pnpm@9.15.0",
   "devDependencies": {
