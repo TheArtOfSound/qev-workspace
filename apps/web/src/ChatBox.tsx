@@ -35,7 +35,7 @@ export function ChatBox({ roomId }: ChatBoxProps) {
     } catch (reason) {
       if (requestSequenceRef.current === sequence) setError(toMessage(reason));
     } finally {
-      if (showLoading && requestSequenceRef.current === sequence) setLoading(false);
+      if (requestSequenceRef.current === sequence) setLoading(false);
     }
   }, [roomId]);
 
