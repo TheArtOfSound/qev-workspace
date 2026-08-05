@@ -10,6 +10,7 @@ import {
   type ProtocolEnvelope,
   type RoomCreatedPayload,
 } from "@qev-workspace/protocol";
+import { registerMockAudioNamespace } from "./mockAudio.js";
 import { registerMockChatRoutes } from "./mockChat.js";
 import { registerMockRoomRoutes } from "./mockRooms.js";
 
@@ -65,6 +66,7 @@ app.addHook("onRequest", async (request, reply) => {
 
 registerMockRoomRoutes(app);
 registerMockChatRoutes(app);
+registerMockAudioNamespace(app, isAllowedOrigin);
 
 app.get("/", async () => ({
   ok: true,
