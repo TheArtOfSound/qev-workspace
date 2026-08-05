@@ -1,4 +1,4 @@
-import type { FastifyInstance, FastifyRequest } from "fastify";
+import type { FastifyInstance } from "fastify";
 import { mockRooms } from "./mockRooms.js";
 
 type IncomingMessageData = { toString(): string };
