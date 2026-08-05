@@ -22,7 +22,8 @@
     "verify:qev": "pnpm run build:packages && pnpm --filter @qev-workspace/web typecheck && pnpm run build:web && pnpm run smoke:offline && pnpm run smoke:ui && pnpm run smoke:responsive",
     "verify:qev:live": "pnpm run verify:qev && pnpm run smoke:live",
     "smoke:relay": "node scripts/qev-relay-ttl-smoke.mjs",
-    "smoke:responsive": "node scripts/qev-responsive-smoke.mjs"
+    "smoke:responsive": "node scripts/qev-responsive-smoke.mjs",
+    "test:rooms": "pnpm run build:packages && playwright test --config playwright.rooms.config.ts tests/rooms.integration.spec.ts"
   },
   "packageManager": "pnpm@9.15.0",
   "devDependencies": {
