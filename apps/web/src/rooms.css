@@ -1,5 +1,6 @@
 .persistent-rooms,
-.active-room-bar {
+.active-room-bar,
+.room-chat {
   width: min(1180px, calc(100% - 32px));
   margin: 24px auto;
   border: 1px solid var(--border, rgba(56, 189, 248, 0.35));
@@ -9,7 +10,8 @@
   box-shadow: 0 18px 50px rgba(2, 6, 23, 0.24);
 }
 
-.persistent-rooms {
+.persistent-rooms,
+.room-chat {
   padding: 24px;
 }
 
@@ -21,7 +23,8 @@
 }
 
 .persistent-rooms__header h2,
-.persistent-room-card h3 {
+.persistent-room-card h3,
+.room-chat h2 {
   margin: 4px 0 8px;
 }
 
@@ -30,18 +33,22 @@
   color: var(--muted-text, #93c5fd);
 }
 
-.persistent-rooms__form label {
+.persistent-rooms__form label,
+.room-chat__composer > label,
+.room-chat__sender span {
   display: block;
   margin-bottom: 8px;
   font-weight: 700;
 }
 
-.persistent-rooms__create-row {
+.persistent-rooms__create-row,
+.room-chat__composer > div {
   display: flex;
   gap: 10px;
 }
 
-.persistent-rooms__create-row input {
+.persistent-rooms__create-row input,
+.room-chat input {
   min-width: 0;
   flex: 1;
   padding: 11px 12px;
@@ -106,14 +113,70 @@
   letter-spacing: 0.08em;
 }
 
+.room-chat__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 20px;
+}
+
+.room-chat__sender {
+  width: min(320px, 100%);
+}
+
+.room-chat__messages {
+  min-height: 220px;
+  max-height: 420px;
+  overflow-y: auto;
+  margin: 20px 0;
+  padding: 14px;
+  border: 1px solid var(--border, rgba(56, 189, 248, 0.35));
+  border-radius: 14px;
+  background: var(--background, #020617);
+}
+
+.room-chat__message {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--surface-elevated, #0b2a4a);
+}
+
+.room-chat__message + .room-chat__message {
+  margin-top: 10px;
+}
+
+.room-chat__message header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: baseline;
+}
+
+.room-chat__message time {
+  color: var(--muted-text, #93c5fd);
+  font-size: 0.82rem;
+}
+
+.room-chat__message p {
+  margin: 8px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 760px) {
   .persistent-rooms__header {
     grid-template-columns: 1fr;
   }
 
   .persistent-rooms__create-row,
-  .active-room-bar {
+  .active-room-bar,
+  .room-chat__header,
+  .room-chat__composer > div {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .room-chat__sender {
+    width: 100%;
   }
 }
