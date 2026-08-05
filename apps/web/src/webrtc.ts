@@ -5,6 +5,13 @@ import {
   type FrameCryptoStatus,
 } from "./mediaFrameCrypto";
 
+export {
+  closeAudioPeer,
+  createAudioPeer,
+  getAudioLocalStream,
+  getAudioRemoteStream,
+} from "./audioWebrtc";
+
 export type QevPeerDataMessage =
   | {
       type: "pointer.move";
