@@ -19,6 +19,9 @@ export function VoiceChannel({ roomId }: VoiceChannelProps) {
   const [active, setActive] = useState(true);
   const [muted, setMuted] = useState(false);
   const [status, setStatus] = useState<VoiceStatus>("requesting");
+  const [connectionState, setConnectionState] = useState<RTCPeerConnectionState>("new");
+  const [localTrackCount, setLocalTrackCount] = useState(0);
+  const [remoteTrackCount, setRemoteTrackCount] = useState(0);
   const [error, setError] = useState("");
   const [playbackBlocked, setPlaybackBlocked] = useState(false);
 
@@ -32,6 +35,9 @@ export function VoiceChannel({ roomId }: VoiceChannelProps) {
     // from opening two microphones and two signaling sockets for one component.
     const startTimer = window.setTimeout(() => {
       setStatus("requesting");
+      setConnectionState("new");
+      setLocalTrackCount(0);
+      setRemoteTrackCount(0);
       setError("");
 
       void createAudioPeer(roomId)
@@ -44,9 +50,13 @@ export function VoiceChannel({ roomId }: VoiceChannelProps) {
           peer = createdPeer;
           peerRef.current = createdPeer;
           setStatus("waiting");
+          setConnectionState(createdPeer.connectionState);
+          setLocalTrackCount(getAudioLocalStream(createdPeer)?.getAudioTracks().length ?? 0);
           attachRemoteAudio(createdPeer);
 
           const handleConnectionState = (): void => {
+            setConnectionState(createdPeer.connectionState);
+
             switch (createdPeer.connectionState) {
               case "connected":
                 setStatus("connected");
@@ -92,18 +102,6 @@ export function VoiceChannel({ roomId }: VoiceChannelProps) {
           createdPeer.addEventListener("qev-audio-peer-joined", handlePeerJoined);
           createdPeer.addEventListener("qev-audio-peer-left", handlePeerLeft);
           createdPeer.addEventListener("qev-audio-error", handleAudioError);
-
-          createdPeer.addEventListener(
-            "close",
-            () => {
-              createdPeer.removeEventListener("connectionstatechange", handleConnectionState);
-              createdPeer.removeEventListener("qev-audio-track", handleRemoteTrack);
-              createdPeer.removeEventListener("qev-audio-peer-joined", handlePeerJoined);
-              createdPeer.removeEventListener("qev-audio-peer-left", handlePeerLeft);
-              createdPeer.removeEventListener("qev-audio-error", handleAudioError);
-            },
-            { once: true },
-          );
         })
         .catch((reason: unknown) => {
           if (disposed) return;
@@ -117,6 +115,9 @@ export function VoiceChannel({ roomId }: VoiceChannelProps) {
       window.clearTimeout(startTimer);
       if (peer) closeAudioPeer(peer);
       if (peerRef.current === peer) peerRef.current = null;
+      setConnectionState("closed");
+      setLocalTrackCount(0);
+      setRemoteTrackCount(0);
       clearRemoteAudio();
     };
   }, [active, roomId]);
@@ -126,6 +127,7 @@ export function VoiceChannel({ roomId }: VoiceChannelProps) {
     const stream = getAudioRemoteStream(peer);
     if (!audio || !stream) return;
 
+    setRemoteTrackCount(stream.getAudioTracks().length);
     if (audio.srcObject !== stream) audio.srcObject = stream;
     void audio.play()
       .then(() => setPlaybackBlocked(false))
@@ -159,6 +161,9 @@ export function VoiceChannel({ roomId }: VoiceChannelProps) {
     setActive(false);
     setMuted(false);
     setStatus("left");
+    setConnectionState("closed");
+    setLocalTrackCount(0);
+    setRemoteTrackCount(0);
     setError("");
   }
 
@@ -176,11 +181,13 @@ export function VoiceChannel({ roomId }: VoiceChannelProps) {
       .catch(() => setPlaybackBlocked(true));
   }
 
-  const localTrackCount = peerRef.current ? getAudioLocalStream(peerRef.current)?.getAudioTracks().length ?? 0 : 0;
-  const remoteTrackCount = peerRef.current ? getAudioRemoteStream(peerRef.current)?.getAudioTracks().length ?? 0 : 0;
-
   return (
-    <section className="voice-channel" data-testid="voice-channel" aria-labelledby="voice-channel-title">
+    <section
+      className="voice-channel"
+      data-testid="voice-channel"
+      data-connection-state={connectionState}
+      aria-labelledby="voice-channel-title"
+    >
       <div className="voice-channel__header">
         <div>
           <p className="eyebrow">Room voice</p>
