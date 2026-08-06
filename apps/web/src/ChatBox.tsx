@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { profileFromToken, getStoredToken } from "./auth";
 import { getMessages, sendMessage } from "./chat";
 import type { ChatMessage } from "./types";
 import "./rooms.css";
 
-const CHAT_SENDER_STORAGE_KEY = "qev.workspace.chatSender";
 const CHAT_REFRESH_INTERVAL_MS = 3_000;
 
 type ChatBoxProps = {
@@ -12,13 +12,18 @@ type ChatBoxProps = {
 
 export function ChatBox({ roomId }: ChatBoxProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [sender, setSender] = useState(() => readInitialSender());
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
   const messageListRef = useRef<HTMLDivElement | null>(null);
   const requestSequenceRef = useRef(0);
+  const seenIdsRef = useRef(new Set<string>());
+
+  const profile = (() => {
+    const token = getStoredToken();
+    return token ? profileFromToken(token) : null;
+  })();
 
   const refreshMessages = useCallback(async (showLoading = false): Promise<void> => {
     const sequence = requestSequenceRef.current + 1;
@@ -29,7 +34,16 @@ export function ChatBox({ roomId }: ChatBoxProps) {
     try {
       const nextMessages = await getMessages(roomId);
       if (requestSequenceRef.current === sequence) {
-        setMessages(nextMessages);
+        const deduped: ChatMessage[] = [];
+        const nextSeen = new Set<string>();
+        for (const message of nextMessages) {
+          const key = message.id ?? `${message.timestamp}:${message.sender}:${message.content}`;
+          if (nextSeen.has(key)) continue;
+          nextSeen.add(key);
+          deduped.push(message);
+        }
+        seenIdsRef.current = nextSeen;
+        setMessages(deduped);
         setError("");
       }
     } catch (reason) {
@@ -50,28 +64,24 @@ export function ChatBox({ roomId }: ChatBoxProps) {
     if (list) list.scrollTop = list.scrollHeight;
   }, [messages]);
 
-  function handleSenderChange(event: ChangeEvent<HTMLInputElement>): void {
-    const nextSender = event.target.value;
-    setSender(nextSender);
-    localStorage.setItem(CHAT_SENDER_STORAGE_KEY, nextSender);
-  }
-
   async function handleSend(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
 
-    const normalizedSender = sender.trim();
     const normalizedContent = content.trim();
-    if (!normalizedSender || !normalizedContent || sending) return;
+    if (!normalizedContent || sending) return;
 
     setSending(true);
     setError("");
 
     try {
-      await sendMessage(roomId, {
-        sender: normalizedSender,
-        content: normalizedContent,
-      });
+      const created = await sendMessage(roomId, normalizedContent);
       setContent("");
+      setMessages((current) => {
+        const key = created.id ?? `${created.timestamp}:${created.sender}:${created.content}`;
+        if (seenIdsRef.current.has(key)) return current;
+        seenIdsRef.current.add(key);
+        return [...current, created].sort((left, right) => left.timestamp - right.timestamp);
+      });
       await refreshMessages(false);
     } catch (reason) {
       setError(toMessage(reason));
@@ -86,17 +96,10 @@ export function ChatBox({ roomId }: ChatBoxProps) {
         <div>
           <p className="eyebrow">Room chat</p>
           <h2 id="room-chat-title">Messages</h2>
+          <p className="room-chat__identity" data-testid="chat-sender-label">
+            Sending as {profile?.displayName ?? "authenticated user"}
+          </p>
         </div>
-        <label className="room-chat__sender">
-          <span>Display name</span>
-          <input
-            data-testid="chat-sender-input"
-            value={sender}
-            onChange={handleSenderChange}
-            maxLength={80}
-            autoComplete="nickname"
-          />
-        </label>
       </div>
 
       {error ? <p className="persistent-rooms__error" role="alert">{error}</p> : null}
@@ -116,7 +119,7 @@ export function ChatBox({ roomId }: ChatBoxProps) {
             <article
               className="room-chat__message"
               data-testid="chat-message"
-              key={`${message.timestamp}-${message.sender}-${index}`}
+              key={message.id ?? `${message.timestamp}-${message.sender}-${index}`}
             >
               <header>
                 <strong>{message.sender}</strong>
@@ -145,7 +148,7 @@ export function ChatBox({ roomId }: ChatBoxProps) {
           <button
             data-testid="chat-send-button"
             type="submit"
-            disabled={sending || !sender.trim() || !content.trim()}
+            disabled={sending || !content.trim()}
           >
             {sending ? "Sending…" : "Send"}
           </button>
@@ -153,13 +156,6 @@ export function ChatBox({ roomId }: ChatBoxProps) {
       </form>
     </section>
   );
-}
-
-function readInitialSender(): string {
-  if (typeof window === "undefined") return "Anonymous";
-  return localStorage.getItem(CHAT_SENDER_STORAGE_KEY)
-    ?? localStorage.getItem("qev.workspace.memberId")
-    ?? "Anonymous";
 }
 
 function formatTimestamp(timestamp: number): string {

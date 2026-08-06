@@ -1,19 +1,32 @@
 import { useEffect, useState } from "react";
-import { getStoredToken } from "./auth";
+import {
+  clearStoredToken,
+  fetchCurrentUser,
+  getStoredToken,
+  logout,
+  profileFromToken,
+  refreshAccessToken,
+} from "./auth";
 import { Login } from "./Login";
 import { RoomList } from "./RoomList";
 import { RoomView } from "./RoomView";
 import { App as WorkspaceApp } from "./WorkspaceApp";
-import type { Room } from "./types";
+import type { Room, UserProfile } from "./types";
+import "./auth.css";
 
 const CURRENT_ROOM_STORAGE_KEY = "currentRoom";
 const CURRENT_ROOM_NAME_STORAGE_KEY = "currentRoomName";
 
 export function App() {
   const [token, setToken] = useState(() => getStoredToken());
+  const [profile, setProfile] = useState<UserProfile | null>(() => {
+    const stored = getStoredToken();
+    return stored ? profileFromToken(stored) : null;
+  });
   const [routePath, setRoutePath] = useState(() => readPathname());
   const [currentRoomId, setCurrentRoomId] = useState(() => readStorage(CURRENT_ROOM_STORAGE_KEY));
   const [currentRoomName, setCurrentRoomName] = useState(() => readStorage(CURRENT_ROOM_NAME_STORAGE_KEY));
+  const [authReady, setAuthReady] = useState(false);
 
   useEffect(() => {
     const handlePopState = (): void => setRoutePath(readPathname());
@@ -22,18 +35,57 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (!token && !isLoginRoute(routePath)) {
+    let cancelled = false;
+
+    void (async () => {
+      let activeToken = getStoredToken();
+      if (!activeToken) {
+        activeToken = await refreshAccessToken();
+      }
+
+      if (cancelled) return;
+
+      if (!activeToken) {
+        setToken(null);
+        setProfile(null);
+        setAuthReady(true);
+        return;
+      }
+
+      setToken(activeToken);
+      const user = await fetchCurrentUser();
+      if (cancelled) return;
+      if (!user) {
+        clearStoredToken();
+        setToken(null);
+        setProfile(null);
+      } else {
+        setProfile(user);
+      }
+      setAuthReady(true);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!authReady) return;
+
+    if (!token && !isLoginRoute(routePath) && !isRegisterRoute(routePath)) {
       navigate(loginRoute(), true, setRoutePath);
       return;
     }
 
-    if (token && isLoginRoute(routePath)) {
+    if (token && (isLoginRoute(routePath) || isRegisterRoute(routePath))) {
       navigate(mainRoute(), true, setRoutePath);
     }
-  }, [routePath, token]);
+  }, [routePath, token, authReady]);
 
   function handleAuthenticated(nextToken: string): void {
     setToken(nextToken);
+    setProfile(profileFromToken(nextToken));
     navigate(mainRoute(), true, setRoutePath);
   }
 
@@ -50,17 +102,46 @@ export function App() {
     setCurrentRoomName("");
   }
 
-  if (!token) return <Login onAuthenticated={handleAuthenticated} />;
-
-  if (currentRoomId) {
-    return <RoomView roomId={currentRoomId} roomName={currentRoomName} onLeave={handleLeave} />;
+  async function handleLogout(): Promise<void> {
+    await logout();
+    handleLeave();
+    setToken(null);
+    setProfile(null);
+    navigate(loginRoute(), true, setRoutePath);
   }
 
+  if (!authReady) {
+    return (
+      <main className="login-shell" data-testid="auth-loading">
+        <p>Checking session…</p>
+      </main>
+    );
+  }
+
+  if (!token) return <Login onAuthenticated={handleAuthenticated} />;
+
   return (
-    <>
-      <RoomList onRoomJoined={handleJoined} />
-      <WorkspaceApp />
-    </>
+    <div className="authenticated-shell" data-testid="authenticated-app">
+      <header className="session-bar" data-testid="session-bar">
+        <div>
+          <span className="session-bar__label">Signed in as</span>
+          <strong data-testid="session-user-name">{profile?.displayName ?? "User"}</strong>
+          <span data-testid="session-user-email">{profile?.email ?? ""}</span>
+        </div>
+        <button type="button" data-testid="logout-button" onClick={() => void handleLogout()}>
+          Log out
+        </button>
+      </header>
+
+      {currentRoomId ? (
+        <RoomView roomId={currentRoomId} roomName={currentRoomName} onLeave={handleLeave} />
+      ) : (
+        <>
+          <RoomList onRoomJoined={handleJoined} />
+          <WorkspaceApp />
+        </>
+      )}
+    </div>
   );
 }
 
@@ -83,8 +164,17 @@ function loginRoute(): string {
   return `${base}${base.endsWith("/") ? "" : "/"}login`;
 }
 
+function registerRoute(): string {
+  const base = mainRoute();
+  return `${base}${base.endsWith("/") ? "" : "/"}register`;
+}
+
 function isLoginRoute(pathname: string): boolean {
   return trimTrailingSlash(pathname) === trimTrailingSlash(loginRoute());
+}
+
+function isRegisterRoute(pathname: string): boolean {
+  return trimTrailingSlash(pathname) === trimTrailingSlash(registerRoute());
 }
 
 function normalizeBasePath(base: string): string {

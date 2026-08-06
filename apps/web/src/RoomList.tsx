@@ -74,7 +74,7 @@ export function RoomList({ onRoomJoined }: RoomListProps) {
         <div>
           <p className="eyebrow">Persistent rooms</p>
           <h2 id="persistent-rooms-title">Choose a workspace room</h2>
-          <p>Rooms remain available while the relay process is running. Your active room survives browser refreshes.</p>
+          <p>Rooms and memberships are stored durably for your account. Only rooms you belong to are listed.</p>
         </div>
 
         <form className="persistent-rooms__form" onSubmit={handleCreate}>

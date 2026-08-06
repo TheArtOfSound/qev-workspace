@@ -1,9 +1,14 @@
+import { authorizationHeader, getStoredToken, refreshAccessToken } from "./auth";
+import { getRelayHttpBaseUrl } from "./rooms";
+
 type AudioSignalMessage = {
   type: string;
   roomId?: string;
   participantCount?: number;
+  maxParticipants?: number;
   description?: RTCSessionDescriptionInit;
   candidate?: RTCIceCandidateInit;
+  ticket?: string;
   code?: string;
 };
 
@@ -25,6 +30,9 @@ export async function createAudioPeer(roomId: string): Promise<RTCPeerConnection
   if (!navigator.mediaDevices?.getUserMedia) throw new Error("Microphone capture is not supported in this browser.");
   if (typeof RTCPeerConnection === "undefined") throw new Error("WebRTC is not supported in this browser.");
 
+  const ticket = await fetchVoiceTicket(normalizedRoomId);
+  const iceServers = await fetchIceServers();
+
   const localStream = await navigator.mediaDevices.getUserMedia({
     video: false,
     audio: {
@@ -34,9 +42,7 @@ export async function createAudioPeer(roomId: string): Promise<RTCPeerConnection
     },
   });
 
-  const peer = new RTCPeerConnection({
-    iceServers: buildAudioIceServers(),
-  });
+  const peer = new RTCPeerConnection({ iceServers });
   const remoteStream = new MediaStream();
   const socket = new WebSocket(buildAudioSignalUrl());
   const state: AudioPeerState = {
@@ -100,6 +106,7 @@ export async function createAudioPeer(roomId: string): Promise<RTCPeerConnection
       sendAudioSignal(state, {
         type: "audio.join",
         roomId: normalizedRoomId,
+        ticket,
       });
     };
 
@@ -179,6 +186,77 @@ export function closeAudioPeer(peer: RTCPeerConnection): void {
 
   if (peer.signalingState !== "closed") peer.close();
   audioPeerStates.delete(peer);
+}
+
+async function fetchVoiceTicket(roomId: string): Promise<string> {
+  const response = await authorizedFetch("/api/voice/ticket", {
+    method: "POST",
+    body: JSON.stringify({ roomId }),
+  });
+
+  if (!response.ok) {
+    const body = await safeJson(response);
+    throw new Error(
+      typeof body.error === "string"
+        ? `Unable to join voice: ${body.error}`
+        : "Unable to obtain a voice signaling ticket.",
+    );
+  }
+
+  const payload = await response.json() as { ticket?: unknown };
+  if (typeof payload.ticket !== "string" || !payload.ticket) {
+    throw new Error("Voice ticket response was invalid.");
+  }
+  return payload.ticket;
+}
+
+async function fetchIceServers(): Promise<RTCIceServer[]> {
+  try {
+    const response = await authorizedFetch("/api/webrtc/ice", { method: "GET" });
+    if (!response.ok) return buildAudioIceServers();
+    const payload = await response.json() as { iceServers?: RTCIceServer[] };
+    if (Array.isArray(payload.iceServers) && payload.iceServers.length > 0) {
+      return payload.iceServers;
+    }
+  } catch {
+    // Fall back to public STUN / optional Vite TURN env.
+  }
+  return buildAudioIceServers();
+}
+
+async function authorizedFetch(path: string, init?: RequestInit): Promise<Response> {
+  const headers = new Headers(init?.headers);
+  headers.set("accept", "application/json");
+  if (init?.body) headers.set("content-type", "application/json");
+  for (const [key, value] of Object.entries(authorizationHeader())) headers.set(key, value);
+
+  let response = await fetch(`${getRelayHttpBaseUrl()}${path}`, {
+    ...init,
+    credentials: "include",
+    headers,
+  });
+
+  if (response.status === 401 && getStoredToken()) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed) {
+      headers.set("authorization", `Bearer ${refreshed}`);
+      response = await fetch(`${getRelayHttpBaseUrl()}${path}`, {
+        ...init,
+        credentials: "include",
+        headers,
+      });
+    }
+  }
+
+  return response;
+}
+
+async function safeJson(response: Response): Promise<{ error?: unknown }> {
+  try {
+    return await response.json() as { error?: unknown };
+  } catch {
+    return {};
+  }
 }
 
 async function handleAudioSignal(
@@ -265,8 +343,10 @@ function toSessionDescriptionInit(description: RTCSessionDescription | null): RT
 }
 
 function buildAudioSignalUrl(): string {
-  const fallback = import.meta.env.DEV ? "ws://localhost:8787/ws" : "wss://qev-workspace.onrender.com/ws";
+  const fallback = import.meta.env.DEV ? "ws://localhost:8787/ws" : "";
   const configured = (import.meta.env.VITE_RELAY_URL as string | undefined) ?? fallback;
+  if (!configured) throw new Error("Voice signaling URL is not configured. Set VITE_RELAY_URL.");
+
   const url = new URL(configured, window.location.href);
 
   if (url.protocol === "https:") url.protocol = "wss:";
@@ -290,7 +370,8 @@ function buildAudioIceServers(): RTCIceServer[] {
   const servers: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
   const turnUrl = import.meta.env.VITE_TURN_URL as string | undefined;
 
-  if (turnUrl) {
+  // Static TURN credentials in the Vite bundle are discouraged. Prefer /api/webrtc/ice.
+  if (turnUrl && import.meta.env.DEV) {
     servers.push({
       urls: turnUrl,
       username: import.meta.env.VITE_TURN_USERNAME as string | undefined,
@@ -307,6 +388,12 @@ function formatAudioError(code: string | undefined): string {
       return "This room no longer exists.";
     case "audio_room_full":
       return "This peer-to-peer voice channel already has two participants.";
+    case "auth_required":
+    case "auth_invalid":
+    case "auth_expired":
+    case "auth_reused":
+    case "forbidden":
+      return "You are not authorized to join this room's voice channel.";
     case "not_in_audio_room":
     case "audio_room_mismatch":
       return "The relay rejected the voice-room membership.";

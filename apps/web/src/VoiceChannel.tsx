@@ -192,6 +192,9 @@ export function VoiceChannel({ roomId }: VoiceChannelProps) {
         <div>
           <p className="eyebrow">Room voice</p>
           <h2 id="voice-channel-title">Voice channel</h2>
+          <p className="voice-channel__limit" data-testid="voice-participant-limit">
+            Direct peer-to-peer voice is limited to 2 participants.
+          </p>
           <p data-testid="voice-status" className={`voice-channel__status voice-channel__status--${status}`}>
             {statusLabel(status, muted)}
           </p>

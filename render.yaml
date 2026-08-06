@@ -10,8 +10,36 @@ services:
     autoDeploy: true
     envVars:
       - key: NODE_VERSION
-        value: 22
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: USE_MOCK_STORAGE
+        value: "false"
+      - key: MOCK_AUTH_ENABLED
+        value: "false"
+      - key: SQLITE_PATH
+        value: /var/data/qev-workspace.sqlite
       - key: ROOM_TTL_MS
-        value: 300000
+        value: "300000"
       - key: ALLOWED_ORIGINS
         value: http://localhost:5173,https://theartofsound.github.io
+      - key: WEB_ORIGIN
+        value: https://theartofsound.github.io
+      - key: JWT_ISSUER
+        value: qev-workspace
+      - key: JWT_AUDIENCE
+        value: qev-workspace-web
+      - key: ACCESS_TOKEN_TTL_SECONDS
+        value: "900"
+      - key: JWT_SIGNING_SECRET
+        sync: false
+      - key: TURN_URL
+        sync: false
+      - key: TURN_USERNAME
+        sync: false
+      - key: TURN_CREDENTIAL
+        sync: false
+    disk:
+      name: qev-data
+      mountPath: /var/data
+      sizeGB: 1

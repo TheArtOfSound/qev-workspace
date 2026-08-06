@@ -1,13 +1,14 @@
 import { expect, test } from "@playwright/test";
+import { registerUser, seedToken } from "./helpers/auth";
 
-const TEST_TOKEN = "test.header.signature";
+test("sending room messages updates the UI and survives refresh", async ({ page, request, context }) => {
+  const user = await registerUser(request, { displayName: "Bryan" });
+  await seedToken(context, user.token);
 
-test("sending room messages updates the UI and survives refresh", async ({ page, request }) => {
   const roomName = `Chat room ${Date.now()}`;
   const firstContent = `First chat message ${Date.now()}`;
   const secondContent = `Second chat message ${Date.now()}`;
 
-  await page.addInitScript((token) => localStorage.setItem("qev_token", token), TEST_TOKEN);
   await page.goto("/");
   await page.getByTestId("room-name-input").fill(roomName);
   await page.getByTestId("create-room-button").click();
@@ -17,7 +18,7 @@ test("sending room messages updates the UI and survives refresh", async ({ page,
   await roomCard.getByRole("button", { name: "Join" }).click();
 
   await expect(page.getByTestId("chat-box")).toBeVisible();
-  await page.getByTestId("chat-sender-input").fill("Bryan");
+  await expect(page.getByTestId("chat-sender-label")).toContainText("Bryan");
 
   await page.getByTestId("chat-message-input").fill(firstContent);
   await page.getByTestId("chat-send-button").click();
@@ -36,10 +37,14 @@ test("sending room messages updates the UI and survives refresh", async ({ page,
   expect(roomId).toBeTruthy();
 
   const apiResponse = await request.get(
-    `http://127.0.0.1:8787/rooms/${encodeURIComponent(roomId!)}/messages`,
+    `http://127.0.0.1:8787/api/rooms/${encodeURIComponent(roomId!)}/messages`,
+    {
+      headers: { authorization: `Bearer ${user.token}` },
+    },
   );
   expect(apiResponse.ok()).toBeTruthy();
   const storedMessages = await apiResponse.json() as Array<{
+    id: string;
     sender: string;
     timestamp: number;
     content: string;
@@ -47,11 +52,11 @@ test("sending room messages updates the UI and survives refresh", async ({ page,
 
   expect(storedMessages.map((message) => message.content)).toEqual([firstContent, secondContent]);
   expect(storedMessages.every((message) => message.sender === "Bryan")).toBeTruthy();
+  expect(storedMessages.every((message) => Boolean(message.id))).toBeTruthy();
   expect(storedMessages[0].timestamp).toBeLessThanOrEqual(storedMessages[1].timestamp);
 
   await page.reload();
   await expect(page.getByTestId("chat-box")).toBeVisible();
   await expect(page.getByTestId("chat-message").filter({ hasText: firstContent })).toBeVisible();
   await expect(page.getByTestId("chat-message").filter({ hasText: secondContent })).toBeVisible();
-  await expect.poll(() => page.evaluate(() => localStorage.getItem("qev_token"))).toBe(TEST_TOKEN);
 });
