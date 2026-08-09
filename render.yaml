@@ -17,8 +17,10 @@ services:
         value: "false"
       - key: MOCK_AUTH_ENABLED
         value: "false"
+      # Free plan has no persistent disk; SQLite lives on the instance filesystem and
+      # resets on redeploy. Attach a Render disk (or Postgres) for durable storage.
       - key: SQLITE_PATH
-        value: /var/data/qev-workspace.sqlite
+        value: .data/qev-workspace.sqlite
       - key: ROOM_TTL_MS
         value: "300000"
       - key: ALLOWED_ORIGINS
@@ -31,15 +33,13 @@ services:
         value: qev-workspace-web
       - key: ACCESS_TOKEN_TTL_SECONDS
         value: "900"
+      # Generated once by Render when the service is created / blueprint-synced.
+      # Prefer replacing with a dashboard-managed secret for long-lived production.
       - key: JWT_SIGNING_SECRET
-        sync: false
+        generateValue: true
       - key: TURN_URL
         sync: false
       - key: TURN_USERNAME
         sync: false
       - key: TURN_CREDENTIAL
         sync: false
-    disk:
-      name: qev-data
-      mountPath: /var/data
-      sizeGB: 1
