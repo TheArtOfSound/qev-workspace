@@ -119,7 +119,7 @@ export function ChatBox({ roomId, roomName }: ChatBoxProps) {
               ? "Loading messages…"
               : messages.length === 0
                 ? "This is the start of the room. Say hi!"
-                : "Scroll up for older messages."}
+                : null}
           </p>
           <p data-testid="chat-sender-label" className="sr-only">
             Posting as {profile?.displayName ?? "you"}

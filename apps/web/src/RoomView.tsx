@@ -16,11 +16,12 @@ export function RoomView({ roomId, roomName, onLeave }: RoomViewProps) {
           <h2>{roomName || "room"}</h2>
         </div>
         <div className="room-top__actions">
-          <code data-testid="active-room-id" className="sr-only">
+          {/* Keep for tests; never show raw IDs in the product UI. */}
+          <span data-testid="active-room-id" className="sr-only" aria-hidden="true">
             {roomId}
-          </code>
+          </span>
           <button type="button" className="btn btn--ghost" onClick={onLeave}>
-            Leave room
+            Leave
           </button>
         </div>
       </header>

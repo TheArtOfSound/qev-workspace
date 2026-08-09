@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import {
   clearStoredToken,
   fetchCurrentUser,
@@ -10,10 +10,15 @@ import {
 import { Login } from "./Login";
 import { RoomList } from "./RoomList";
 import { RoomView } from "./RoomView";
-import { App as WorkspaceApp } from "./WorkspaceApp";
 import type { Room, UserProfile } from "./types";
 import { Avatar } from "./ui";
 import "./product.css";
+
+// Lazy so lab console CSS never loads on the chat path until user asks for tools.
+const WorkspaceApp = lazy(async () => {
+  const mod = await import("./WorkspaceApp");
+  return { default: mod.App };
+});
 
 const CURRENT_ROOM_STORAGE_KEY = "currentRoom";
 const CURRENT_ROOM_NAME_STORAGE_KEY = "currentRoomName";
@@ -160,7 +165,9 @@ export function App() {
           <Avatar name={profile?.displayName ?? "You"} id={profile?.id} />
           <div className="sidebar__user-meta">
             <strong data-testid="session-user-name">{profile?.displayName ?? "You"}</strong>
-            <span data-testid="session-user-email">{profile?.email ?? ""}</span>
+            <span data-testid="session-user-email" className="sr-only">
+              {profile?.email ?? ""}
+            </span>
           </div>
           <button type="button" data-testid="logout-button" onClick={() => void handleLogout()}>
             Log out
@@ -178,7 +185,9 @@ export function App() {
               </button>
             </div>
             <div className="advanced__body">
-              <WorkspaceApp />
+              <Suspense fallback={<div className="loading">Loading tools…</div>}>
+                <WorkspaceApp />
+              </Suspense>
             </div>
           </div>
         ) : currentRoomId ? (
