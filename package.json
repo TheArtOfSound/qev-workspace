@@ -27,6 +27,7 @@
     "test:chat": "pnpm run build:packages && pnpm --filter @qev-workspace/relay test:chat && playwright test --config playwright.rooms.config.ts tests/chat.integration.spec.ts",
     "test:voice": "pnpm run build:packages && playwright test --config playwright.voice.config.ts tests/voice.integration.spec.ts",
     "test:auth": "pnpm --filter @qev-workspace/web test:auth && pnpm --filter @qev-workspace/relay test:auth",
+    "test:flows": "pnpm run build:packages && playwright test --config playwright.rooms.config.ts tests/flows.integration.spec.ts",
     "test:auth:unit": "pnpm --filter @qev-workspace/web test:auth",
     "test:auth:integration": "pnpm --filter @qev-workspace/relay test:auth",
     "seed:dev": "pnpm --filter @qev-workspace/relay seed:dev",

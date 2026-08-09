@@ -42,6 +42,22 @@ export function findUserById(id: string): UserRecord | undefined {
   return getDb().get<UserRecord>("SELECT * FROM users WHERE id = ?", [id]);
 }
 
+export function updateDisplayName(userId: string, displayName: string): UserRecord {
+  const name = displayName.trim().slice(0, 80);
+  if (!name) throw new Error("display_name_required");
+
+  const user = findUserById(userId);
+  if (!user || user.disabled_at) throw new Error("user_disabled_or_missing");
+
+  const updatedAt = nowIso();
+  getDb().run(
+    "UPDATE users SET display_name = ?, updated_at = ? WHERE id = ?",
+    [name, updatedAt, userId],
+  );
+
+  return { ...user, display_name: name, updated_at: updatedAt };
+}
+
 export function createUser(input: {
   email: string;
   password: string;

@@ -168,6 +168,54 @@ export async function fetchCurrentUser(): Promise<UserProfile | null> {
   return { id: user.id, email: user.email, displayName: user.displayName };
 }
 
+export async function updateProfile(displayName: string): Promise<UserProfile> {
+  const name = displayName.trim();
+  if (!name) throw new AuthenticationError("Enter a name.");
+
+  const token = getStoredToken();
+  if (!token) throw new AuthenticationError("Log in first.");
+
+  let response: Response;
+  try {
+    response = await fetch(resolveAuthUrl("/api/auth/me"), {
+      method: "PATCH",
+      credentials: "include",
+      headers: {
+        "content-type": "application/json",
+        accept: "application/json",
+        authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ displayName: name }),
+    });
+  } catch (reason) {
+    throw new AuthenticationError(
+      reason instanceof Error ? `Unable to reach the server: ${reason.message}` : "Unable to reach the server.",
+    );
+  }
+
+  if (response.status === 401) {
+    const refreshed = await refreshAccessToken();
+    if (!refreshed) throw new AuthenticationError("Session expired. Log in again.", 401);
+    return updateProfile(name);
+  }
+
+  const payload = await readAuthResponse(response);
+  if (!response.ok) {
+    throw new AuthenticationError(readErrorMessage(payload) ?? "Couldn't update your name.", response.status);
+  }
+
+  if (typeof payload.token === "string" && isAccessTokenValid(payload.token)) {
+    localStorage.setItem(QEV_TOKEN_STORAGE_KEY, payload.token);
+  }
+
+  const user = payload.user as Partial<UserProfile> | undefined;
+  if (!user || typeof user.id !== "string" || typeof user.email !== "string" || typeof user.displayName !== "string") {
+    throw new AuthenticationError("Server returned an invalid profile.");
+  }
+
+  return { id: user.id, email: user.email, displayName: user.displayName };
+}
+
 export function getStoredToken(): AuthToken | null {
   if (typeof localStorage === "undefined") return null;
   const token = localStorage.getItem(QEV_TOKEN_STORAGE_KEY);

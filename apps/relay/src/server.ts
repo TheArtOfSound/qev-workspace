@@ -93,7 +93,7 @@ app.addHook("onRequest", async (request, reply) => {
   const origin = request.headers.origin;
   if (origin && isAllowedOrigin(origin, ALLOWED_ORIGINS)) {
     reply.header("access-control-allow-origin", origin);
-    reply.header("access-control-allow-methods", "GET,POST,OPTIONS");
+    reply.header("access-control-allow-methods", "GET,POST,PATCH,OPTIONS");
     reply.header(
       "access-control-allow-headers",
       "content-type, authorization",

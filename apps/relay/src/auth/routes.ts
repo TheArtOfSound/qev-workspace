@@ -14,6 +14,7 @@ import {
   revokeRefreshToken,
   rotateRefreshToken,
   toPublicUser,
+  updateDisplayName,
 } from "./users.js";
 
 const REFRESH_COOKIE = "qev_refresh";
@@ -140,6 +141,28 @@ export function registerAuthRoutes(app: FastifyInstance, config: AppConfig): voi
     }
 
     return { user: toPublicUser(user) };
+  });
+
+  app.patch<{ Body: { displayName?: unknown } }>("/api/auth/me", { preHandler: requireAuth }, async (request, reply) => {
+    const auth = getAuth(request);
+    if (!auth) return reply.code(401).send({ error: "authentication_required" });
+
+    const displayName = typeof request.body?.displayName === "string" ? request.body.displayName : "";
+    try {
+      const user = updateDisplayName(auth.user.id, displayName);
+      // Re-issue access token so JWT name claim matches the new display name.
+      const { token, claims } = signAccessToken(config, toPublicUser(user));
+      return {
+        token,
+        expiresAt: new Date(claims.exp * 1000).toISOString(),
+        user: toPublicUser(user),
+      };
+    } catch (error) {
+      if (error instanceof Error && error.message === "display_name_required") {
+        return reply.code(400).send({ error: "display_name_required" });
+      }
+      throw error;
+    }
   });
 
   app.post("/api/auth/logout-all", { preHandler: requireAuth }, async (request, reply) => {

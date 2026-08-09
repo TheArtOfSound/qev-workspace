@@ -8,9 +8,11 @@ import {
   refreshAccessToken,
 } from "./auth";
 import { Login } from "./Login";
+import { ProfileModal } from "./ProfileModal";
 import { RoomList } from "./RoomList";
 import { RoomView } from "./RoomView";
 import { SimpleShare } from "./SimpleShare";
+import { joinWithInvite } from "./rooms";
 import type { Room, UserProfile } from "./types";
 import { Avatar } from "./ui";
 import "./product.css";
@@ -32,6 +34,9 @@ export function App() {
   const [authReady, setAuthReady] = useState(false);
   const [screen, setScreen] = useState<Screen>("chat");
   const [roomsKey, setRoomsKey] = useState(0);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [banner, setBanner] = useState("");
+  const [pendingInvite, setPendingInvite] = useState(() => readInviteFromUrl());
 
   useEffect(() => {
     const onPop = (): void => setRoutePath(readPathname());
@@ -83,6 +88,35 @@ export function App() {
     }
   }, [routePath, token, authReady]);
 
+  // After login, redeem invite link if present.
+  useEffect(() => {
+    if (!authReady || !token || !pendingInvite) return;
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const room = await joinWithInvite(pendingInvite);
+        if (cancelled) return;
+        setCurrentRoomId(room.id);
+        setCurrentRoomName(room.name);
+        setRoomsKey((n) => n + 1);
+        setBanner(`Joined #${room.name}`);
+        clearInviteFromUrl();
+        setPendingInvite("");
+        setScreen("chat");
+      } catch (reason) {
+        if (cancelled) return;
+        setBanner(reason instanceof Error ? reason.message : "Couldn't use that invite.");
+        clearInviteFromUrl();
+        setPendingInvite("");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authReady, token, pendingInvite]);
+
   function handleAuthenticated(next: string): void {
     setToken(next);
     setProfile(profileFromToken(next));
@@ -121,7 +155,18 @@ export function App() {
     );
   }
 
-  if (!token) return <Login onAuthenticated={handleAuthenticated} />;
+  if (!token) {
+    return (
+      <>
+        {pendingInvite ? (
+          <div className="invite-notice" data-testid="invite-login-notice">
+            You have an invite. Log in or create an account to join.
+          </div>
+        ) : null}
+        <Login onAuthenticated={handleAuthenticated} />
+      </>
+    );
+  }
 
   return (
     <div className="app" data-testid="authenticated-app">
@@ -162,13 +207,22 @@ export function App() {
         </button>
 
         <footer className="sidebar__user" data-testid="session-bar">
-          <Avatar name={profile?.displayName ?? "You"} id={profile?.id} />
-          <div className="sidebar__user-meta">
-            <strong data-testid="session-user-name">{profile?.displayName ?? "You"}</strong>
-            <span data-testid="session-user-email" className="sr-only">
-              {profile?.email ?? ""}
-            </span>
-          </div>
+          <button
+            type="button"
+            className="sidebar__user-btn"
+            data-testid="open-profile-button"
+            onClick={() => setProfileOpen(true)}
+            title="Edit your name"
+          >
+            <Avatar name={profile?.displayName ?? "You"} id={profile?.id} />
+            <div className="sidebar__user-meta">
+              <strong data-testid="session-user-name">{profile?.displayName ?? "You"}</strong>
+              <span>Edit profile</span>
+            </div>
+          </button>
+          <span data-testid="session-user-email" className="sr-only">
+            {profile?.email ?? ""}
+          </span>
           <button type="button" data-testid="logout-button" onClick={() => void handleLogout()}>
             Log out
           </button>
@@ -176,6 +230,15 @@ export function App() {
       </aside>
 
       <main className="main">
+        {banner ? (
+          <div className="app-banner" data-testid="app-banner" role="status">
+            <span>{banner}</span>
+            <button type="button" className="btn btn--ghost" onClick={() => setBanner("")}>
+              Dismiss
+            </button>
+          </div>
+        ) : null}
+
         {screen === "share" ? (
           <SimpleShare onBack={() => setScreen("chat")} />
         ) : currentRoomId ? (
@@ -194,13 +257,36 @@ export function App() {
                 <li>Type a name and hit <strong>Add</strong></li>
                 <li>Click the room</li>
                 <li>Chat — or hit <strong>Join voice</strong></li>
+                <li>Hit <strong>Invite</strong> to add people</li>
               </ol>
             </div>
           </div>
         )}
       </main>
+
+      {profileOpen && profile ? (
+        <ProfileModal
+          profile={profile}
+          onClose={() => setProfileOpen(false)}
+          onSaved={(next) => setProfile(next)}
+        />
+      ) : null}
     </div>
   );
+}
+
+function readInviteFromUrl(): string {
+  if (typeof window === "undefined") return "";
+  return new URLSearchParams(window.location.search).get("invite")?.trim() ?? "";
+}
+
+function clearInviteFromUrl(): void {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has("invite") && !url.searchParams.has("room")) return;
+  url.searchParams.delete("invite");
+  url.searchParams.delete("room");
+  window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
 }
 
 function go(path: string, replace: boolean, setRoutePath: (path: string) => void): void {

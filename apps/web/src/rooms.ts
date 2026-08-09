@@ -2,6 +2,21 @@ import { authorizationHeader, getStoredToken, refreshAccessToken, clearStoredTok
 import type { Room } from "./types";
 
 const CURRENT_ROOM_STORAGE_KEY = "currentRoom";
+const CURRENT_ROOM_NAME_STORAGE_KEY = "currentRoomName";
+
+export type RoomMember = {
+  userId: string;
+  role: string;
+  joinedAt: string;
+  displayName: string;
+  email: string;
+};
+
+export type InviteResult = {
+  token: string;
+  expiresAt: string;
+  roomId: string;
+};
 
 export function getRelayHttpBaseUrl(): string {
   const fallback = import.meta.env.DEV ? "http://localhost:8787" : "";
@@ -11,7 +26,7 @@ export function getRelayHttpBaseUrl(): string {
     ?? fallback;
 
   if (!configured) {
-    throw new Error("Production API URL is not configured. Set VITE_API_URL or VITE_RELAY_URL.");
+    throw new Error("Can't reach the server. Try again later.");
   }
 
   return configured
@@ -57,30 +72,47 @@ export async function relayRequest(path: string, init?: RequestInit): Promise<Re
 
   if (!response.ok) {
     let detail = `${response.status} ${response.statusText}`.trim();
-
     try {
       const body = (await response.clone().json()) as { error?: string };
       if (body.error) detail = body.error;
     } catch {
-      // The status line is sufficient when the response is not JSON.
+      // status line is enough
     }
-
-    throw new Error(`Relay request failed: ${detail}`);
+    throw new Error(friendlyRoomError(detail));
   }
 
   return response;
 }
 
-export async function createRoom(name: string): Promise<Room> {
+function friendlyRoomError(detail: string): string {
+  switch (detail) {
+    case "forbidden":
+      return "You don't have access to that.";
+    case "invite_invalid":
+      return "That invite link is invalid.";
+    case "invite_expired":
+      return "That invite link expired. Ask for a new one.";
+    case "room_not_found":
+      return "Room not found.";
+    case "not_a_member":
+      return "You're not in that room.";
+    case "rate_limited":
+      return "Too many tries. Wait a moment.";
+    default:
+      return detail.startsWith("Relay request failed") ? detail : `Couldn't do that: ${detail}`;
+  }
+}
+
+export async function createRoom(name: string): Promise<Room & { inviteToken?: string }> {
   const normalizedName = name.trim();
-  if (!normalizedName) throw new Error("Room name is required.");
+  if (!normalizedName) throw new Error("Give the room a name.");
 
   const response = await relayRequest("/api/rooms", {
     method: "POST",
     body: JSON.stringify({ name: normalizedName }),
   });
 
-  return (await response.json()) as Room;
+  return (await response.json()) as Room & { inviteToken?: string };
 }
 
 export async function getRooms(): Promise<Room[]> {
@@ -90,7 +122,7 @@ export async function getRooms(): Promise<Room[]> {
 
 export async function joinRoom(roomId: string, inviteToken?: string): Promise<Room> {
   const normalizedRoomId = roomId.trim();
-  if (!normalizedRoomId) throw new Error("Room id is required.");
+  if (!normalizedRoomId) throw new Error("Room is missing.");
 
   const response = await relayRequest(`/api/rooms/${encodeURIComponent(normalizedRoomId)}/join`, {
     method: "POST",
@@ -101,8 +133,48 @@ export async function joinRoom(roomId: string, inviteToken?: string): Promise<Ro
   return (await response.json()) as Room;
 }
 
+export async function joinWithInvite(inviteToken: string): Promise<Room> {
+  const token = inviteToken.trim();
+  if (!token) throw new Error("Invite is missing.");
+
+  const response = await relayRequest("/api/invites/join", {
+    method: "POST",
+    body: JSON.stringify({ inviteToken: token }),
+  });
+
+  const room = (await response.json()) as Room;
+  localStorage.setItem(CURRENT_ROOM_STORAGE_KEY, room.id);
+  localStorage.setItem(CURRENT_ROOM_NAME_STORAGE_KEY, room.name);
+  return room;
+}
+
 export async function leaveRoomApi(roomId: string): Promise<void> {
   await relayRequest(`/api/rooms/${encodeURIComponent(roomId)}/leave`, {
     method: "POST",
   });
+  localStorage.removeItem(CURRENT_ROOM_STORAGE_KEY);
+  localStorage.removeItem(CURRENT_ROOM_NAME_STORAGE_KEY);
+}
+
+export async function listRoomMembers(roomId: string): Promise<RoomMember[]> {
+  const response = await relayRequest(`/api/rooms/${encodeURIComponent(roomId)}/members`);
+  return (await response.json()) as RoomMember[];
+}
+
+export async function createRoomInvite(roomId: string): Promise<InviteResult> {
+  const response = await relayRequest(`/api/rooms/${encodeURIComponent(roomId)}/invites`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+  return (await response.json()) as InviteResult;
+}
+
+export function buildInviteLink(roomId: string, inviteToken: string): string {
+  const url = new URL(window.location.href);
+  // Keep app base path; replace query.
+  url.search = "";
+  url.hash = "";
+  url.searchParams.set("invite", inviteToken);
+  url.searchParams.set("room", roomId);
+  return url.toString();
 }

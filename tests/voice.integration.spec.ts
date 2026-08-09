@@ -20,11 +20,12 @@ test("two browser windows exchange real WebRTC audio tracks", async ({ browser, 
   });
 
   expect(roomResponse.status()).toBe(201);
-  const room = (await roomResponse.json()) as RoomResponse;
+  const room = (await roomResponse.json()) as RoomResponse & { inviteToken?: string };
+  expect(room.inviteToken).toBeTruthy();
 
-  const joinGuest = await request.post(`${relayBase}/api/rooms/${room.id}/join`, {
+  const joinGuest = await request.post(`${relayBase}/api/invites/join`, {
     headers: { authorization: `Bearer ${guest.token}` },
-    data: {},
+    data: { inviteToken: room.inviteToken },
   });
   expect(joinGuest.ok()).toBeTruthy();
 

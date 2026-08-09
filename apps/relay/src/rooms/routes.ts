@@ -6,6 +6,7 @@ import {
   createInvite,
   createRoom,
   getRoomForUser,
+  joinByInviteToken,
   joinRoom,
   leaveRoom,
   listMembers,
@@ -14,6 +15,7 @@ import {
 
 type CreateRoomBody = { name?: unknown };
 type JoinRoomBody = { inviteToken?: unknown };
+type JoinInviteBody = { inviteToken?: unknown };
 type RoomParams = { roomId: string };
 
 export function registerRoomRoutes(app: FastifyInstance, config: AppConfig): void {
@@ -112,6 +114,32 @@ export function registerRoomRoutes(app: FastifyInstance, config: AppConfig): voi
           return reply.code(403).send({ error: "forbidden" });
         }
         throw error;
+      }
+    },
+  );
+
+  app.post<{ Body: JoinInviteBody }>(
+    "/api/invites/join",
+    { preHandler: requireAuth },
+    async (request, reply) => {
+      const auth = getAuth(request);
+      if (!auth) return reply.code(401).send({ error: "authentication_required" });
+
+      const inviteToken = typeof request.body?.inviteToken === "string" ? request.body.inviteToken : "";
+      try {
+        const room = joinByInviteToken(auth.user.id, inviteToken);
+        return reply.code(200).send(room);
+      } catch (error) {
+        if (!(error instanceof Error)) throw error;
+        switch (error.message) {
+          case "invite_invalid":
+          case "invite_expired":
+            return reply.code(403).send({ error: error.message });
+          case "room_not_found":
+            return reply.code(404).send({ error: "room_not_found" });
+          default:
+            throw error;
+        }
       }
     },
   );

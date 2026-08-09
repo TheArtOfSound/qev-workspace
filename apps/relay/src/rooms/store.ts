@@ -32,19 +32,21 @@ export type RoomView = {
   updatedAt: string;
 };
 
-export function createRoom(input: { name: string; createdBy: string }): RoomView {
+export function createRoom(input: { name: string; createdBy: string }): RoomView & { inviteToken?: string } {
   const name = input.name.trim().slice(0, 100);
   if (!name) throw new Error("room_name_required");
 
   const now = nowIso();
   const id = createId("room");
+  const inviteToken = createId("inv") + createId("sec");
+  const inviteExpires = new Date(Date.now() + 60 * 60 * 24 * 30 * 1000).toISOString();
   const db = getDb();
 
   db.transaction(() => {
     db.run(
       `INSERT INTO rooms (id, name, created_by, created_at, updated_at, archived_at, visibility, invite_token_hash, invite_expires_at)
-       VALUES (?, ?, ?, ?, ?, NULL, 'private', NULL, NULL)`,
-      [id, name, input.createdBy, now, now],
+       VALUES (?, ?, ?, ?, ?, NULL, 'private', ?, ?)`,
+      [id, name, input.createdBy, now, now, sha256(inviteToken), inviteExpires],
     );
     db.run(
       `INSERT INTO room_memberships (room_id, user_id, role, joined_at, left_at)
@@ -53,7 +55,8 @@ export function createRoom(input: { name: string; createdBy: string }): RoomView
     );
   });
 
-  return getRoomForUser(id, input.createdBy)!;
+  const room = getRoomForUser(id, input.createdBy)!;
+  return { ...room, inviteToken };
 }
 
 export function listRoomsForUser(userId: string): RoomView[] {
@@ -199,8 +202,8 @@ export function listMembers(roomId: string): Array<{ userId: string; role: RoomR
   ) as Array<{ userId: string; role: RoomRole; joinedAt: string; displayName: string; email: string }>;
 }
 
-export function createInvite(roomId: string, userId: string, ttlSeconds = 60 * 60 * 24 * 7): { token: string; expiresAt: string } {
-  const membership = requireMembership(roomId, userId, ["owner", "admin"]);
+export function createInvite(roomId: string, userId: string, ttlSeconds = 60 * 60 * 24 * 7): { token: string; expiresAt: string; roomId: string } {
+  const membership = requireMembership(roomId, userId, ["owner", "admin", "member"]);
   if (!membership) throw new Error("forbidden");
 
   const token = createId("inv") + createId("sec");
@@ -209,7 +212,28 @@ export function createInvite(roomId: string, userId: string, ttlSeconds = 60 * 6
     "UPDATE rooms SET invite_token_hash = ?, invite_expires_at = ?, updated_at = ? WHERE id = ?",
     [sha256(token), expiresAt, nowIso(), roomId],
   );
-  return { token, expiresAt };
+  return { token, expiresAt, roomId };
+}
+
+export function joinByInviteToken(userId: string, inviteToken: string): RoomView {
+  const token = inviteToken.trim();
+  if (!token) throw new Error("invite_invalid");
+
+  const room = getDb().get<RoomRecord>(
+    "SELECT * FROM rooms WHERE invite_token_hash = ? AND archived_at IS NULL",
+    [sha256(token)],
+  );
+  if (!room) throw new Error("invite_invalid");
+  if (room.invite_expires_at && new Date(room.invite_expires_at).getTime() <= Date.now()) {
+    throw new Error("invite_expired");
+  }
+
+  return joinRoom(room.id, userId, token);
+}
+
+/** Auto-issue an invite when a room is created so owners can share immediately. */
+export function ensureInviteForOwner(roomId: string, userId: string): { token: string; expiresAt: string; roomId: string } {
+  return createInvite(roomId, userId);
 }
 
 function listActiveMemberIds(roomId: string): string[] {

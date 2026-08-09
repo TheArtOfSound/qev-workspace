@@ -923,6 +923,160 @@ button {
   color: var(--text-muted);
 }
 
+/* Invite + people + profile */
+
+.invite-bar,
+.people-bar {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: #232428;
+}
+
+.invite-bar strong,
+.people-bar strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.invite-bar p {
+  margin: 0 0 8px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.invite-bar code {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #93c5fd;
+  font-size: 0.8rem;
+}
+
+.invite-bar__actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.people-bar {
+  flex-direction: column;
+}
+
+.people-bar ul {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.people-bar li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.people-bar__empty {
+  color: var(--text-muted);
+}
+
+.app-banner,
+.invite-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  background: rgba(88, 101, 242, 0.18);
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.invite-notice {
+  justify-content: center;
+  text-align: center;
+}
+
+.sidebar__user-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+
+.sidebar__user-btn:hover .sidebar__user-meta span {
+  color: var(--text-muted);
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.65);
+}
+
+.modal {
+  width: min(400px, 100%);
+  padding: 24px;
+  border-radius: 12px;
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+}
+
+.modal h2 {
+  margin: 0 0 6px;
+}
+
+.modal > p {
+  margin: 0 0 16px;
+  color: var(--text-muted);
+}
+
+.modal input {
+  width: 100%;
+  border: 0;
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--bg-dark);
+  margin-bottom: 12px;
+  outline: none;
+}
+
+.modal input:focus {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.modal__error {
+  margin: 0 0 12px;
+  color: #f23f43;
+  font-size: 0.85rem;
+}
+
+.modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .sr-only {
   position: absolute;
   width: 1px;
