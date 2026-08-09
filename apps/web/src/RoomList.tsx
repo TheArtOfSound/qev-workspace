@@ -5,9 +5,10 @@ import "./rooms.css";
 
 type RoomListProps = {
   onRoomJoined: (room: Room) => void;
+  activeRoomId?: string;
 };
 
-export function RoomList({ onRoomJoined }: RoomListProps) {
+export function RoomList({ onRoomJoined, activeRoomId = "" }: RoomListProps) {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(true);
@@ -46,6 +47,8 @@ export function RoomList({ onRoomJoined }: RoomListProps) {
       const room = await createRoom(normalizedName);
       setRooms((current) => [room, ...current.filter((item) => item.id !== room.id)]);
       setName("");
+      await joinRoom(room.id);
+      onRoomJoined(room);
     } catch (reason) {
       setError(toMessage(reason));
     } finally {
@@ -53,8 +56,11 @@ export function RoomList({ onRoomJoined }: RoomListProps) {
     }
   }
 
-  async function handleJoin(room: Room): Promise<void> {
-    if (joiningRoomId) return;
+  async function handleOpen(room: Room): Promise<void> {
+    if (joiningRoomId || room.id === activeRoomId) {
+      if (room.id === activeRoomId) onRoomJoined(room);
+      return;
+    }
 
     setJoiningRoomId(room.id);
     setError("");
@@ -64,60 +70,79 @@ export function RoomList({ onRoomJoined }: RoomListProps) {
       onRoomJoined(room);
     } catch (reason) {
       setError(toMessage(reason));
+    } finally {
       setJoiningRoomId("");
     }
   }
 
   return (
-    <section className="persistent-rooms" data-testid="room-list" aria-labelledby="persistent-rooms-title">
-      <div className="persistent-rooms__header">
-        <div>
-          <p className="eyebrow">Persistent rooms</p>
-          <h2 id="persistent-rooms-title">Choose a workspace room</h2>
-          <p>Rooms and memberships are stored durably for your account. Only rooms you belong to are listed.</p>
-        </div>
-
-        <form className="persistent-rooms__form" onSubmit={handleCreate}>
-          <label htmlFor="room-name">New room name</label>
-          <div className="persistent-rooms__create-row">
-            <input
-              id="room-name"
-              data-testid="room-name-input"
-              value={name}
-              onChange={(event: ChangeEvent<HTMLInputElement>) => setName(event.target.value)}
-              placeholder="Design review"
-              maxLength={100}
-              autoComplete="off"
-            />
-            <button data-testid="create-room-button" type="submit" disabled={submitting || !name.trim()}>
-              {submitting ? "Creating…" : "Create room"}
-            </button>
-          </div>
-        </form>
+    <section className="channel-list" data-testid="room-list" aria-label="Your rooms">
+      <div className="channel-list__header">
+        <h2>Rooms</h2>
       </div>
 
-      {error ? <p className="persistent-rooms__error" role="alert">{error}</p> : null}
+      <form className="channel-list__create" onSubmit={handleCreate}>
+        <label htmlFor="room-name" className="sr-only">
+          New room name
+        </label>
+        <input
+          id="room-name"
+          data-testid="room-name-input"
+          value={name}
+          onChange={(event: ChangeEvent<HTMLInputElement>) => setName(event.target.value)}
+          placeholder="New room name"
+          maxLength={100}
+          autoComplete="off"
+        />
+        <button
+          data-testid="create-room-button"
+          type="submit"
+          disabled={submitting || !name.trim()}
+          title="Create room"
+        >
+          {submitting ? "…" : "+"}
+        </button>
+      </form>
 
-      {loading ? (
-        <p className="persistent-rooms__empty">Loading rooms…</p>
-      ) : rooms.length === 0 ? (
-        <p className="persistent-rooms__empty">No persistent rooms yet. Create the first one.</p>
-      ) : (
-        <div className="persistent-rooms__grid">
-          {rooms.map((room) => (
-            <article className="persistent-room-card" data-testid="room-card" key={room.id}>
-              <div>
-                <h3>{room.name}</h3>
-                <p>{room.members.length} {room.members.length === 1 ? "member" : "members"}</p>
-                <code>{room.id}</code>
-              </div>
-              <button type="button" onClick={() => void handleJoin(room)} disabled={Boolean(joiningRoomId)}>
-                {joiningRoomId === room.id ? "Joining…" : "Join"}
-              </button>
-            </article>
-          ))}
-        </div>
-      )}
+      {error ? (
+        <p className="channel-list__error" role="alert">
+          {error}
+        </p>
+      ) : null}
+
+      <div className="channel-list__scroll">
+        {loading ? (
+          <p className="channel-list__empty">Loading rooms…</p>
+        ) : rooms.length === 0 ? (
+          <p className="channel-list__empty" data-testid="rooms-empty">
+            No rooms yet. Create one above.
+          </p>
+        ) : (
+          <ul className="channel-list__items">
+            {rooms.map((room) => {
+              const isActive = room.id === activeRoomId;
+              const isJoining = joiningRoomId === room.id;
+              return (
+                <li key={room.id}>
+                  <button
+                    type="button"
+                    className={`channel-item${isActive ? " is-active" : ""}`}
+                    data-testid="room-card"
+                    onClick={() => void handleOpen(room)}
+                    disabled={Boolean(joiningRoomId) && !isJoining}
+                  >
+                    <span className="channel-item__hash">#</span>
+                    <span className="channel-item__name">{room.name}</span>
+                    <span className="channel-item__meta">
+                      {isJoining ? "Opening…" : `${room.members.length}`}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
     </section>
   );
 }

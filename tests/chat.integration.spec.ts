@@ -10,13 +10,12 @@ test("sending room messages updates the UI and survives refresh", async ({ page,
   const secondContent = `Second chat message ${Date.now()}`;
 
   await page.goto("/");
+  await expect(page.getByTestId("room-list")).toBeVisible();
   await page.getByTestId("room-name-input").fill(roomName);
   await page.getByTestId("create-room-button").click();
 
-  const roomCard = page.getByTestId("room-card").filter({ hasText: roomName });
-  await expect(roomCard).toBeVisible();
-  await roomCard.getByRole("button", { name: "Join" }).click();
-
+  // Create now opens the room immediately.
+  await expect(page.getByTestId("room-view")).toBeVisible();
   await expect(page.getByTestId("chat-box")).toBeVisible();
   await expect(page.getByTestId("chat-sender-label")).toContainText("Bryan");
 
@@ -36,8 +35,10 @@ test("sending room messages updates the UI and survives refresh", async ({ page,
   const roomId = await page.getByTestId("active-room-id").textContent();
   expect(roomId).toBeTruthy();
 
+  const relayBase = process.env.QEV_RELAY_URL
+    ?? (process.env.QEV_RELAY_PORT ? `http://127.0.0.1:${process.env.QEV_RELAY_PORT}` : "http://127.0.0.1:8787");
   const apiResponse = await request.get(
-    `http://127.0.0.1:8787/api/rooms/${encodeURIComponent(roomId!)}/messages`,
+    `${relayBase}/api/rooms/${encodeURIComponent(roomId!)}/messages`,
     {
       headers: { authorization: `Bearer ${user.token}` },
     },

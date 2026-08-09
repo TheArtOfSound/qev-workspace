@@ -13,9 +13,12 @@ import { RoomView } from "./RoomView";
 import { App as WorkspaceApp } from "./WorkspaceApp";
 import type { Room, UserProfile } from "./types";
 import "./auth.css";
+import "./rooms.css";
 
 const CURRENT_ROOM_STORAGE_KEY = "currentRoom";
 const CURRENT_ROOM_NAME_STORAGE_KEY = "currentRoomName";
+
+type MainView = "rooms" | "advanced";
 
 export function App() {
   const [token, setToken] = useState(() => getStoredToken());
@@ -27,6 +30,8 @@ export function App() {
   const [currentRoomId, setCurrentRoomId] = useState(() => readStorage(CURRENT_ROOM_STORAGE_KEY));
   const [currentRoomName, setCurrentRoomName] = useState(() => readStorage(CURRENT_ROOM_NAME_STORAGE_KEY));
   const [authReady, setAuthReady] = useState(false);
+  const [mainView, setMainView] = useState<MainView>("rooms");
+  const [roomsRefreshKey, setRoomsRefreshKey] = useState(0);
 
   useEffect(() => {
     const handlePopState = (): void => setRoutePath(readPathname());
@@ -91,8 +96,10 @@ export function App() {
 
   function handleJoined(room: Room): void {
     localStorage.setItem(CURRENT_ROOM_NAME_STORAGE_KEY, room.name);
+    localStorage.setItem(CURRENT_ROOM_STORAGE_KEY, room.id);
     setCurrentRoomId(room.id);
     setCurrentRoomName(room.name);
+    setMainView("rooms");
   }
 
   function handleLeave(): void {
@@ -100,6 +107,7 @@ export function App() {
     localStorage.removeItem(CURRENT_ROOM_NAME_STORAGE_KEY);
     setCurrentRoomId("");
     setCurrentRoomName("");
+    setRoomsRefreshKey((value) => value + 1);
   }
 
   async function handleLogout(): Promise<void> {
@@ -121,26 +129,98 @@ export function App() {
   if (!token) return <Login onAuthenticated={handleAuthenticated} />;
 
   return (
-    <div className="authenticated-shell" data-testid="authenticated-app">
-      <header className="session-bar" data-testid="session-bar">
-        <div>
-          <span className="session-bar__label">Signed in as</span>
-          <strong data-testid="session-user-name">{profile?.displayName ?? "User"}</strong>
-          <span data-testid="session-user-email">{profile?.email ?? ""}</span>
+    <div className="app-shell" data-testid="authenticated-app">
+      <aside className="app-sidebar" data-testid="app-sidebar">
+        <div className="app-sidebar__brand">
+          <span className="app-sidebar__mark">QEV</span>
+          <div>
+            <strong>Workspace</strong>
+            <small>Rooms · chat · voice</small>
+          </div>
         </div>
-        <button type="button" data-testid="logout-button" onClick={() => void handleLogout()}>
-          Log out
-        </button>
-      </header>
 
-      {currentRoomId ? (
-        <RoomView roomId={currentRoomId} roomName={currentRoomName} onLeave={handleLeave} />
-      ) : (
-        <>
-          <RoomList onRoomJoined={handleJoined} />
-          <WorkspaceApp />
-        </>
-      )}
+        <nav className="app-sidebar__nav" aria-label="Primary">
+          <button
+            type="button"
+            className={mainView === "rooms" ? "is-active" : ""}
+            onClick={() => setMainView("rooms")}
+            data-testid="nav-rooms"
+          >
+            Rooms
+          </button>
+          <button
+            type="button"
+            className={mainView === "advanced" ? "is-active" : ""}
+            onClick={() => setMainView("advanced")}
+            data-testid="nav-advanced"
+            title="Screen share and remote-control tools"
+          >
+            Advanced
+          </button>
+        </nav>
+
+        {mainView === "rooms" ? (
+          <RoomList
+            key={roomsRefreshKey}
+            activeRoomId={currentRoomId}
+            onRoomJoined={handleJoined}
+          />
+        ) : (
+          <div className="app-sidebar__hint">
+            <p>Screen share, device identity, and remote control live here.</p>
+            <p>Day-to-day chat and voice stay under Rooms.</p>
+          </div>
+        )}
+
+        <footer className="app-sidebar__user" data-testid="session-bar">
+          <div>
+            <strong data-testid="session-user-name">{profile?.displayName ?? "User"}</strong>
+            <span data-testid="session-user-email">{profile?.email ?? ""}</span>
+          </div>
+          <button type="button" data-testid="logout-button" onClick={() => void handleLogout()}>
+            Log out
+          </button>
+        </footer>
+      </aside>
+
+      <main className="app-main">
+        {mainView === "advanced" ? (
+          <div className="app-advanced" data-testid="advanced-panel">
+            <header className="app-main__header">
+              <div>
+                <p className="app-main__eyebrow">Advanced tools</p>
+                <h1>Screen share & control</h1>
+                <p className="app-main__lede">
+                  Optional tools for secure remote sessions. Use Rooms for normal team chat and voice.
+                </p>
+              </div>
+              <button type="button" className="app-btn secondary" onClick={() => setMainView("rooms")}>
+                Back to rooms
+              </button>
+            </header>
+            <div className="app-advanced__body">
+              <WorkspaceApp />
+            </div>
+          </div>
+        ) : currentRoomId ? (
+          <RoomView
+            roomId={currentRoomId}
+            roomName={currentRoomName}
+            onLeave={handleLeave}
+          />
+        ) : (
+          <div className="app-empty" data-testid="no-room-selected">
+            <div>
+              <p className="app-main__eyebrow">Welcome</p>
+              <h1>Pick a room to get started</h1>
+              <p>
+                Create a room in the sidebar, or join one you already belong to.
+                Chat and 2-person voice live inside each room.
+              </p>
+            </div>
+          </div>
+        )}
+      </main>
     </div>
   );
 }

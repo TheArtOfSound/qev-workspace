@@ -1,6 +1,5 @@
 import { ChatBox } from "./ChatBox";
 import { VoiceChannel } from "./VoiceChannel";
-import { App as WorkspaceApp } from "./WorkspaceApp";
 import "./rooms.css";
 
 type RoomViewProps = {
@@ -11,18 +10,32 @@ type RoomViewProps = {
 
 export function RoomView({ roomId, roomName, onLeave }: RoomViewProps) {
   return (
-    <div data-testid="room-view">
-      <header className="active-room-bar">
-        <div>
-          <span>Active persistent room</span>
-          <strong>{roomName || roomId}</strong>
-          <code data-testid="active-room-id">{roomId}</code>
+    <div className="room-stage" data-testid="room-view">
+      <header className="room-stage__header">
+        <div className="room-stage__title">
+          <span className="room-stage__hash">#</span>
+          <div>
+            <h1>{roomName || "Room"}</h1>
+            <p className="room-stage__sub">
+              Chat with your team. Voice is optional and limited to 2 people.
+            </p>
+          </div>
         </div>
-        <button type="button" onClick={onLeave}>Leave room</button>
+        <div className="room-stage__actions">
+          <code className="room-stage__id" data-testid="active-room-id" title="Room ID">
+            {roomId}
+          </code>
+          <button type="button" className="app-btn secondary" onClick={onLeave}>
+            Leave room
+          </button>
+        </div>
       </header>
-      <VoiceChannel roomId={roomId} />
-      <ChatBox roomId={roomId} />
-      <WorkspaceApp />
+
+      <VoiceChannel roomId={roomId} autoJoin={false} compact />
+
+      <div className="room-stage__chat">
+        <ChatBox roomId={roomId} />
+      </div>
     </div>
   );
 }

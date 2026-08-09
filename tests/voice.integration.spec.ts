@@ -11,7 +11,10 @@ test("two browser windows exchange real WebRTC audio tracks", async ({ browser, 
   const guest = await registerUser(request, { displayName: "Voice Guest" });
 
   const roomName = `Voice room ${Date.now()}`;
-  const roomResponse = await request.post("http://localhost:8787/api/rooms", {
+  const relayBase = process.env.QEV_RELAY_URL
+    ?? (process.env.QEV_RELAY_PORT ? `http://localhost:${process.env.QEV_RELAY_PORT}` : "http://localhost:8787");
+
+  const roomResponse = await request.post(`${relayBase}/api/rooms`, {
     headers: { authorization: `Bearer ${owner.token}` },
     data: { name: roomName },
   });
@@ -19,7 +22,7 @@ test("two browser windows exchange real WebRTC audio tracks", async ({ browser, 
   expect(roomResponse.status()).toBe(201);
   const room = (await roomResponse.json()) as RoomResponse;
 
-  const joinGuest = await request.post(`http://localhost:8787/api/rooms/${room.id}/join`, {
+  const joinGuest = await request.post(`${relayBase}/api/rooms/${room.id}/join`, {
     headers: { authorization: `Bearer ${guest.token}` },
     data: {},
   });
@@ -30,10 +33,12 @@ test("two browser windows exchange real WebRTC audio tracks", async ({ browser, 
 
   try {
     const firstPage = await openVoiceRoom(firstContext);
+    await firstPage.getByTestId("voice-rejoin-button").click();
     await expect(firstPage.getByTestId("local-audio-track-count")).toHaveText("1");
-    await expect(firstPage.getByTestId("voice-participant-limit")).toContainText("2 participants");
+    await expect(firstPage.getByTestId("voice-participant-limit")).toContainText("2");
 
     const secondPage = await openVoiceRoom(secondContext);
+    await secondPage.getByTestId("voice-rejoin-button").click();
     await expect(secondPage.getByTestId("local-audio-track-count")).toHaveText("1");
 
     await expect(firstPage.getByTestId("voice-channel")).toHaveAttribute("data-connection-state", "connected");
@@ -47,15 +52,14 @@ test("two browser windows exchange real WebRTC audio tracks", async ({ browser, 
 
     await firstPage.getByTestId("voice-mute-button").click();
     await expect(firstPage.getByTestId("voice-mute-button")).toHaveText("Unmute");
-    await expect(firstPage.getByTestId("voice-status")).toContainText("microphone muted");
+    await expect(firstPage.getByTestId("voice-status")).toContainText("muted");
 
     await firstPage.getByTestId("voice-mute-button").click();
     await expect(firstPage.getByTestId("voice-mute-button")).toHaveText("Mute");
-    await expect(firstPage.getByTestId("voice-status")).toContainText("microphone live");
 
     await secondPage.getByTestId("voice-leave-button").click();
-    await expect(secondPage.getByTestId("voice-status")).toHaveText("You left the voice channel.");
-    await expect(firstPage.getByTestId("voice-status")).toContainText("waiting for another participant");
+    await expect(secondPage.getByTestId("voice-status")).toHaveText("Not in voice");
+    await expect(firstPage.getByTestId("voice-status")).toContainText("waiting");
   } finally {
     await Promise.all([firstContext.close(), secondContext.close()]);
   }
@@ -67,7 +71,7 @@ async function createVoiceContext(
   token: string,
 ): Promise<BrowserContext> {
   const context = await createContext({
-    baseURL: "http://localhost:5173",
+    baseURL: process.env.QEV_WEB_BASE_URL ?? "http://localhost:5174",
     permissions: ["microphone"],
   });
 

@@ -19,6 +19,7 @@ export function ChatBox({ roomId }: ChatBoxProps) {
   const messageListRef = useRef<HTMLDivElement | null>(null);
   const requestSequenceRef = useRef(0);
   const seenIdsRef = useRef(new Set<string>());
+  const stickToBottomRef = useRef(true);
 
   const profile = (() => {
     const token = getStoredToken();
@@ -61,8 +62,17 @@ export function ChatBox({ roomId }: ChatBoxProps) {
 
   useEffect(() => {
     const list = messageListRef.current;
-    if (list) list.scrollTop = list.scrollHeight;
+    if (list && stickToBottomRef.current) {
+      list.scrollTop = list.scrollHeight;
+    }
   }, [messages]);
+
+  function handleScroll(): void {
+    const list = messageListRef.current;
+    if (!list) return;
+    const distanceFromBottom = list.scrollHeight - list.scrollTop - list.clientHeight;
+    stickToBottomRef.current = distanceFromBottom < 80;
+  }
 
   async function handleSend(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -76,6 +86,7 @@ export function ChatBox({ roomId }: ChatBoxProps) {
     try {
       const created = await sendMessage(roomId, normalizedContent);
       setContent("");
+      stickToBottomRef.current = true;
       setMessages((current) => {
         const key = created.id ?? `${created.timestamp}:${created.sender}:${created.content}`;
         if (seenIdsRef.current.has(key)) return current;
@@ -91,29 +102,30 @@ export function ChatBox({ roomId }: ChatBoxProps) {
   }
 
   return (
-    <section className="room-chat" data-testid="chat-box" aria-labelledby="room-chat-title">
-      <div className="room-chat__header">
-        <div>
-          <p className="eyebrow">Room chat</p>
-          <h2 id="room-chat-title">Messages</h2>
-          <p className="room-chat__identity" data-testid="chat-sender-label">
-            Sending as {profile?.displayName ?? "authenticated user"}
-          </p>
-        </div>
-      </div>
-
-      {error ? <p className="persistent-rooms__error" role="alert">{error}</p> : null}
+    <section className="room-chat" data-testid="chat-box" aria-label="Messages">
+      {error ? (
+        <p className="room-chat__error" role="alert">
+          {error}
+        </p>
+      ) : null}
 
       <div
         className="room-chat__messages"
         data-testid="chat-message-list"
         ref={messageListRef}
+        onScroll={handleScroll}
         aria-live="polite"
       >
         {loading ? (
-          <p className="persistent-rooms__empty">Loading messages…</p>
+          <p className="room-chat__empty">Loading messages…</p>
         ) : messages.length === 0 ? (
-          <p className="persistent-rooms__empty">No messages yet. Start the conversation.</p>
+          <div className="room-chat__empty-state">
+            <h2>No messages yet</h2>
+            <p>Say hello — this is the start of #{/* room filled by parent context */}</p>
+            <p data-testid="chat-sender-label">
+              You&apos;re posting as <strong>{profile?.displayName ?? "you"}</strong>
+            </p>
+          </div>
         ) : (
           messages.map((message, index) => (
             <article
@@ -134,25 +146,25 @@ export function ChatBox({ roomId }: ChatBoxProps) {
       </div>
 
       <form className="room-chat__composer" onSubmit={handleSend}>
-        <label htmlFor="chat-message-content">Message</label>
-        <div>
-          <input
-            id="chat-message-content"
-            data-testid="chat-message-input"
-            value={content}
-            onChange={(event: ChangeEvent<HTMLInputElement>) => setContent(event.target.value)}
-            placeholder="Write a message"
-            maxLength={2_000}
-            autoComplete="off"
-          />
-          <button
-            data-testid="chat-send-button"
-            type="submit"
-            disabled={sending || !content.trim()}
-          >
-            {sending ? "Sending…" : "Send"}
-          </button>
-        </div>
+        <label htmlFor="chat-message-content" className="sr-only">
+          Message
+        </label>
+        <input
+          id="chat-message-content"
+          data-testid="chat-message-input"
+          value={content}
+          onChange={(event: ChangeEvent<HTMLInputElement>) => setContent(event.target.value)}
+          placeholder={`Message as ${profile?.displayName ?? "you"}`}
+          maxLength={2_000}
+          autoComplete="off"
+        />
+        <button
+          data-testid="chat-send-button"
+          type="submit"
+          disabled={sending || !content.trim()}
+        >
+          {sending ? "Sending…" : "Send"}
+        </button>
       </form>
     </section>
   );
@@ -162,7 +174,6 @@ function formatTimestamp(timestamp: number): string {
   return new Intl.DateTimeFormat(undefined, {
     hour: "numeric",
     minute: "2-digit",
-    second: "2-digit",
   }).format(new Date(timestamp));
 }
 

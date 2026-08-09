@@ -8,7 +8,9 @@ export type TestUser = {
   userId: string;
 };
 
-const RELAY = process.env.QEV_RELAY_URL ?? "http://localhost:8787";
+const RELAY = process.env.QEV_RELAY_URL
+  ?? (process.env.QEV_RELAY_PORT ? `http://localhost:${process.env.QEV_RELAY_PORT}` : null)
+  ?? "http://localhost:8787";
 
 export async function registerUser(
   request: APIRequestContext,
