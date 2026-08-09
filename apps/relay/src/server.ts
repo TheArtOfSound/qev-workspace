@@ -10,12 +10,29 @@ import {
   type ProtocolEnvelope,
   type RoomCreatedPayload,
 } from "@qev-workspace/protocol";
+import { registerAudioNamespace } from "./audio/namespace.js";
+import { registerAuthRoutes } from "./auth/routes.js";
+import { registerChatRoutes } from "./chat/routes.js";
+import { isAllowedOrigin, loadConfig } from "./config.js";
+import { openDatabase, runMigrations } from "./db/client.js";
+import { registerRoomRoutes } from "./rooms/routes.js";
+import { clientIp, consumeRateLimit } from "./security/rateLimit.js";
 
-const PORT = Number(process.env.PORT ?? 8787);
-const ROOM_TTL_MS = Number(process.env.ROOM_TTL_MS ?? 5 * 60 * 1000);
-const ALLOWED_ORIGINS = parseAllowedOrigins(
-  process.env.ALLOWED_ORIGINS ?? process.env.ALLOWED_ORIGIN ?? "http://localhost:5173,https://theartofsound.github.io",
-);
+// Keep development mock modules available when explicitly enabled.
+import { registerMockAudioNamespace } from "./mockAudio.js";
+import { registerMockChatRoutes } from "./mockChat.js";
+import { registerMockRoomRoutes } from "./mockRooms.js";
+
+const config = loadConfig();
+
+if (!config.useMockStorage) {
+  const db = openDatabase(config);
+  runMigrations(db);
+}
+
+const PORT = config.port;
+const ROOM_TTL_MS = config.roomTtlMs;
+const ALLOWED_ORIGINS = config.allowedOrigins;
 
 type IncomingMessageData = { toString(): string };
 
@@ -45,14 +62,78 @@ type Room = {
 const rooms = new Map<string, Room>();
 const socketToRoom = new WeakMap<WebSocketLike, { roomCode: string; peerId: string }>();
 
-const app = Fastify({ logger: true });
+const app = Fastify({
+  logger: true,
+  bodyLimit: config.bodyLimitBytes,
+  trustProxy: true,
+});
 await app.register(websocket);
+
+app.addHook("onRequest", async (request, reply) => {
+  reply.header("x-content-type-options", "nosniff");
+  reply.header("x-frame-options", "DENY");
+  reply.header("referrer-policy", "no-referrer");
+  reply.header("permissions-policy", "camera=(self), microphone=(self), display-capture=(self)");
+  reply.header("cross-origin-opener-policy", "same-origin");
+  reply.header("cross-origin-resource-policy", "same-site");
+
+  if (!request.url.startsWith("/ws")) {
+    const limited = consumeRateLimit(
+      `http:${clientIp(request)}:${request.method}`,
+      config.rateLimitMax,
+      config.rateLimitWindowMs,
+    );
+    reply.header("x-ratelimit-remaining", String(limited.remaining));
+    if (!limited.allowed) {
+      reply.header("retry-after", String(Math.ceil(limited.retryAfterMs / 1000) || 1));
+      return reply.code(429).send({ error: "rate_limited" });
+    }
+  }
+
+  const origin = request.headers.origin;
+  if (origin && isAllowedOrigin(origin, ALLOWED_ORIGINS)) {
+    reply.header("access-control-allow-origin", origin);
+    reply.header("access-control-allow-methods", "GET,POST,OPTIONS");
+    reply.header(
+      "access-control-allow-headers",
+      "content-type, authorization",
+    );
+    reply.header("access-control-allow-credentials", "true");
+    reply.header("vary", "Origin");
+  }
+
+  if (request.method === "OPTIONS") return reply.code(204).send();
+});
+
+app.setErrorHandler((error, request, reply) => {
+  request.log.error({ err: error }, "request_failed");
+  if (reply.sent) return;
+  const status = typeof error === "object" && error && "statusCode" in error
+    ? Number((error as { statusCode?: number }).statusCode) || 500
+    : 500;
+  reply.code(status >= 400 && status < 600 ? status : 500).send({
+    error: config.isProduction ? "internal_error" : (error instanceof Error ? error.message : "internal_error"),
+  });
+});
+
+if (config.useMockStorage) {
+  registerMockRoomRoutes(app);
+  registerMockChatRoutes(app);
+  registerMockAudioNamespace(app, (origin) => isAllowedOrigin(origin, ALLOWED_ORIGINS));
+} else {
+  registerAuthRoutes(app, config);
+  registerRoomRoutes(app, config);
+  registerChatRoutes(app, config);
+  registerAudioNamespace(app, config, (origin) => isAllowedOrigin(origin, ALLOWED_ORIGINS));
+}
 
 app.get("/", async () => ({
   ok: true,
   service: "qev-workspace-relay",
   health: "/health",
   websocket: "/ws",
+  audioWebsocket: "/ws/audio",
+  storage: config.useMockStorage ? "mock" : "sqlite",
   rooms: rooms.size,
   time: nowIso(),
 }));
@@ -60,6 +141,7 @@ app.get("/", async () => ({
 app.get("/health", async () => ({
   ok: true,
   service: "qev-workspace-relay",
+  storage: config.useMockStorage ? "mock" : "sqlite",
   rooms: rooms.size,
   time: nowIso(),
 }));
@@ -68,7 +150,7 @@ app.get("/ws", { websocket: true }, (connection, request) => {
   cleanupExpiredRooms();
 
   const origin = request.headers.origin;
-  if (origin && !isAllowedOrigin(origin)) {
+  if (origin && !isAllowedOrigin(origin, ALLOWED_ORIGINS)) {
     connection.close(1008, "origin_not_allowed");
     return;
   }
@@ -261,8 +343,6 @@ function cleanupExpiredRooms(): void {
     if (room.expiresAt >= now) continue;
 
     // Expiry is an invite/join window, not an active-session kill switch.
-    // Once two peers are connected, they may stay in the room until they disconnect,
-    // end the session, burn the room locally, or the relay process restarts.
     if (room.peers.size >= 2) continue;
 
     closeRoom(code, "room_expired");
@@ -283,18 +363,21 @@ function asDevice(value: unknown): DeviceIdentityPublic | undefined {
   return record as DeviceIdentityPublic;
 }
 
-function parseAllowedOrigins(raw: string): Set<string> {
-  return new Set(
-    raw
-      .split(",")
-      .map((origin) => origin.trim().replace(/\/$/, ""))
-      .filter(Boolean),
-  );
-}
+const shutdown = async (signal: string) => {
+  app.log.info({ signal }, "shutting_down");
+  try {
+    await app.close();
+  } finally {
+    process.exit(0);
+  }
+};
 
-function isAllowedOrigin(origin: string): boolean {
-  const normalized = origin.trim().replace(/\/$/, "");
-  return ALLOWED_ORIGINS.has("*") || ALLOWED_ORIGINS.has(normalized);
-}
+process.on("SIGINT", () => void shutdown("SIGINT"));
+process.on("SIGTERM", () => void shutdown("SIGTERM"));
 
 await app.listen({ port: PORT, host: "0.0.0.0" });
+app.log.info({
+  port: PORT,
+  storage: config.useMockStorage ? "mock" : "sqlite",
+  accessTokenTtlSeconds: config.accessTokenTtlSeconds,
+}, "qev_relay_ready");

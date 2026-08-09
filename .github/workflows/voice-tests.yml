@@ -1,0 +1,35 @@
+name: Voice Tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - "agent/**"
+      - main
+  workflow_dispatch:
+
+jobs:
+  test-voice:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      NODE_OPTIONS: --experimental-sqlite
+      USE_MOCK_STORAGE: "false"
+      JWT_SIGNING_SECRET: ci-jwt-signing-secret-at-least-32-chars
+      SQLITE_PATH: .data/ci-voice.sqlite
+      QEV_USE_VIRTUAL_MICROPHONE: "1"
+      CI: "true"
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile=false
+      - run: pnpm run build:packages
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:voice

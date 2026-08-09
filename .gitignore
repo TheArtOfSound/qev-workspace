@@ -10,6 +10,14 @@ coverage/
 .turbo/
 .vite/
 .cache/
+.data/
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+test-results/
+playwright-report/
+blob-report/
 apps/host-desktop/src-tauri/target/
 apps/host-desktop/src-tauri/gen/
 apps/host-agent/scripts/

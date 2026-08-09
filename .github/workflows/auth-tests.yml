@@ -1,0 +1,58 @@
+name: Auth Tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - "agent/**"
+      - main
+  workflow_dispatch:
+
+jobs:
+  test-auth:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NODE_OPTIONS: --experimental-sqlite
+      USE_MOCK_STORAGE: "false"
+      MOCK_AUTH_ENABLED: "false"
+      JWT_SIGNING_SECRET: ci-jwt-signing-secret-at-least-32-chars
+      SQLITE_PATH: .data/ci-auth.sqlite
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile=false
+
+      - name: Build shared packages
+        run: pnpm run build:packages
+
+      - name: Typecheck relay and web
+        run: |
+          pnpm --filter @qev-workspace/relay typecheck
+          pnpm --filter @qev-workspace/web typecheck
+
+      - name: Run auth unit and integration tests
+        run: pnpm test:auth
+
+      - name: Validate migrations
+        run: pnpm migrate
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run auth browser test
+        run: pnpm exec playwright test --config playwright.rooms.config.ts tests/auth.integration.spec.ts

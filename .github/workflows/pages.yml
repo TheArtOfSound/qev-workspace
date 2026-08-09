@@ -19,7 +19,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GITHUB_PAGES: "true"
-      VITE_RELAY_URL: "wss://qev-workspace.onrender.com/ws"
+      VITE_RELAY_URL: ${{ vars.VITE_RELAY_URL || 'wss://qev-workspace.onrender.com/ws' }}
+      VITE_API_URL: ${{ vars.VITE_API_URL || 'https://qev-workspace.onrender.com' }}
+      VITE_AUTH_API_URL: ${{ vars.VITE_AUTH_API_URL || 'https://qev-workspace.onrender.com' }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -30,6 +32,8 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile=false
+      - run: pnpm run build:packages
+      - run: pnpm --filter @qev-workspace/web typecheck
       - run: pnpm run build:web
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
