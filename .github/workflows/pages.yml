@@ -19,9 +19,11 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GITHUB_PAGES: "true"
-      VITE_RELAY_URL: ${{ vars.VITE_RELAY_URL || 'wss://qev-workspace.onrender.com/ws' }}
-      VITE_API_URL: ${{ vars.VITE_API_URL || 'https://qev-workspace.onrender.com' }}
-      VITE_AUTH_API_URL: ${{ vars.VITE_AUTH_API_URL || 'https://qev-workspace.onrender.com' }}
+      # Prefer repo variables when set. Defaults target the live Cloudflare-tunneled API
+      # (Render free auto-deploy is not currently refreshing this service).
+      VITE_RELAY_URL: ${{ vars.VITE_RELAY_URL || 'wss://qev-api.autohustle.online/ws' }}
+      VITE_API_URL: ${{ vars.VITE_API_URL || 'https://qev-api.autohustle.online' }}
+      VITE_AUTH_API_URL: ${{ vars.VITE_AUTH_API_URL || 'https://qev-api.autohustle.online' }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
