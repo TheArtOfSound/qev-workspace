@@ -5,18 +5,16 @@ import {
   getAudioLocalStream,
   getAudioRemoteStream,
 } from "./webrtc";
-import "./rooms.css";
 
 type VoiceChannelProps = {
   roomId: string;
-  /** When false, user must click Join voice (product default). */
   autoJoin?: boolean;
   compact?: boolean;
 };
 
 type VoiceStatus = "idle" | "requesting" | "waiting" | "connecting" | "connected" | "left" | "error";
 
-export function VoiceChannel({ roomId, autoJoin = false, compact = false }: VoiceChannelProps) {
+export function VoiceChannel({ roomId, autoJoin = false }: VoiceChannelProps) {
   const peerRef = useRef<RTCPeerConnection | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const [active, setActive] = useState(autoJoin);
@@ -53,11 +51,10 @@ export function VoiceChannel({ roomId, autoJoin = false, compact = false }: Voic
           setStatus("waiting");
           setConnectionState(createdPeer.connectionState);
           setLocalTrackCount(getAudioLocalStream(createdPeer)?.getAudioTracks().length ?? 0);
-          attachRemoteAudio(createdPeer);
+          attachRemote(createdPeer);
 
-          const handleConnectionState = (): void => {
+          const onState = (): void => {
             setConnectionState(createdPeer.connectionState);
-
             switch (createdPeer.connectionState) {
               case "connected":
                 setStatus("connected");
@@ -72,7 +69,7 @@ export function VoiceChannel({ roomId, autoJoin = false, compact = false }: Voic
                 break;
               case "failed":
                 setStatus("error");
-                setError("The peer-to-peer audio connection failed.");
+                setError("Call failed. Try joining again.");
                 break;
               case "closed":
                 if (!disposed) setStatus("left");
@@ -80,29 +77,20 @@ export function VoiceChannel({ roomId, autoJoin = false, compact = false }: Voic
             }
           };
 
-          const handleRemoteTrack = (): void => {
-            attachRemoteAudio(createdPeer);
-          };
-
-          const handlePeerJoined = (): void => {
-            setStatus("connecting");
-          };
-
-          const handlePeerLeft = (): void => {
-            setStatus("waiting");
-          };
-
-          const handleAudioError = (event: Event): void => {
+          const onTrack = (): void => attachRemote(createdPeer);
+          const onPeerJoined = (): void => setStatus("connecting");
+          const onPeerLeft = (): void => setStatus("waiting");
+          const onError = (event: Event): void => {
             const message = (event as CustomEvent<{ message?: string }>).detail?.message;
             setStatus("error");
-            setError(message ?? "Voice communication failed.");
+            setError(message ?? "Voice failed.");
           };
 
-          createdPeer.addEventListener("connectionstatechange", handleConnectionState);
-          createdPeer.addEventListener("qev-audio-track", handleRemoteTrack);
-          createdPeer.addEventListener("qev-audio-peer-joined", handlePeerJoined);
-          createdPeer.addEventListener("qev-audio-peer-left", handlePeerLeft);
-          createdPeer.addEventListener("qev-audio-error", handleAudioError);
+          createdPeer.addEventListener("connectionstatechange", onState);
+          createdPeer.addEventListener("qev-audio-track", onTrack);
+          createdPeer.addEventListener("qev-audio-peer-joined", onPeerJoined);
+          createdPeer.addEventListener("qev-audio-peer-left", onPeerLeft);
+          createdPeer.addEventListener("qev-audio-error", onError);
         })
         .catch((reason: unknown) => {
           if (disposed) return;
@@ -119,15 +107,14 @@ export function VoiceChannel({ roomId, autoJoin = false, compact = false }: Voic
       setConnectionState("closed");
       setLocalTrackCount(0);
       setRemoteTrackCount(0);
-      clearRemoteAudio();
+      clearRemote();
     };
   }, [active, roomId]);
 
-  function attachRemoteAudio(peer: RTCPeerConnection): void {
+  function attachRemote(peer: RTCPeerConnection): void {
     const audio = remoteAudioRef.current;
     const stream = getAudioRemoteStream(peer);
     if (!audio || !stream) return;
-
     setRemoteTrackCount(stream.getAudioTracks().length);
     if (audio.srcObject !== stream) audio.srcObject = stream;
     void audio.play()
@@ -135,30 +122,28 @@ export function VoiceChannel({ roomId, autoJoin = false, compact = false }: Voic
       .catch(() => setPlaybackBlocked(true));
   }
 
-  function clearRemoteAudio(): void {
+  function clearRemote(): void {
     const audio = remoteAudioRef.current;
     if (!audio) return;
     audio.pause();
     audio.srcObject = null;
   }
 
-  function handleMuteToggle(): void {
+  function handleMute(): void {
     const peer = peerRef.current;
     if (!peer) return;
-
-    const nextMuted = !muted;
-    const stream = getAudioLocalStream(peer);
-    stream?.getAudioTracks().forEach((track) => {
-      track.enabled = !nextMuted;
+    const next = !muted;
+    getAudioLocalStream(peer)?.getAudioTracks().forEach((track) => {
+      track.enabled = !next;
     });
-    setMuted(nextMuted);
+    setMuted(next);
   }
 
   function handleLeave(): void {
     const peer = peerRef.current;
     if (peer) closeAudioPeer(peer);
     peerRef.current = null;
-    clearRemoteAudio();
+    clearRemote();
     setActive(false);
     setMuted(false);
     setStatus("left");
@@ -174,57 +159,53 @@ export function VoiceChannel({ roomId, autoJoin = false, compact = false }: Voic
     setActive(true);
   }
 
-  function handleEnablePlayback(): void {
-    const audio = remoteAudioRef.current;
-    if (!audio) return;
-    void audio.play()
-      .then(() => setPlaybackBlocked(false))
-      .catch(() => setPlaybackBlocked(true));
-  }
+  const inCall = active && status !== "left" && status !== "idle";
+  const live = status === "connected";
+  const bad = status === "error";
 
   return (
-    <section
-      className={`voice-bar${compact ? " voice-bar--compact" : ""}`}
+    <div
+      className="voice"
       data-testid="voice-channel"
       data-connection-state={connectionState}
-      aria-label="Voice"
     >
-      <div className="voice-bar__info">
-        <strong id="voice-channel-title">Voice</strong>
-        <span data-testid="voice-participant-limit" className="voice-bar__limit">
-          Max 2 people
-        </span>
-        <span data-testid="voice-status" className={`voice-bar__status voice-bar__status--${status}`}>
+      <div className="voice__left">
+        <span className={`voice__dot${live ? " is-live" : ""}${bad ? " is-bad" : ""}`} />
+        <span className="voice__label">Voice</span>
+        <span data-testid="voice-status" className="voice__hint">
           {statusLabel(status, muted)}
+        </span>
+        <span data-testid="voice-participant-limit" className="voice__hint">
+          · up to 2 people
         </span>
       </div>
 
-      <div className="voice-bar__actions">
-        {active && status !== "left" && status !== "idle" ? (
+      <div className="voice__actions">
+        {inCall ? (
           <>
             <button
-              data-testid="voice-mute-button"
               type="button"
-              className="app-btn secondary"
-              onClick={handleMuteToggle}
+              className="btn btn--muted"
+              data-testid="voice-mute-button"
+              onClick={handleMute}
               disabled={!peerRef.current || status === "requesting" || status === "error"}
             >
               {muted ? "Unmute" : "Mute"}
             </button>
             <button
-              data-testid="voice-leave-button"
               type="button"
-              className="app-btn secondary"
+              className="btn btn--danger"
+              data-testid="voice-leave-button"
               onClick={handleLeave}
             >
-              Leave voice
+              Leave
             </button>
           </>
         ) : (
           <button
-            data-testid="voice-rejoin-button"
             type="button"
-            className="app-btn primary"
+            className="btn btn--green"
+            data-testid="voice-rejoin-button"
             onClick={handleJoin}
           >
             Join voice
@@ -233,22 +214,32 @@ export function VoiceChannel({ roomId, autoJoin = false, compact = false }: Voic
       </div>
 
       {error ? (
-        <p className="voice-bar__error" role="alert">
+        <p className="voice__error" role="alert">
           {error}
         </p>
       ) : null}
       {playbackBlocked ? (
-        <button className="voice-bar__playback" type="button" onClick={handleEnablePlayback}>
-          Enable incoming audio
+        <button
+          type="button"
+          className="btn btn--muted"
+          onClick={() => {
+            const audio = remoteAudioRef.current;
+            if (!audio) return;
+            void audio.play()
+              .then(() => setPlaybackBlocked(false))
+              .catch(() => setPlaybackBlocked(true));
+          }}
+        >
+          Click to hear them
         </button>
       ) : null}
 
       <audio data-testid="remote-audio" ref={remoteAudioRef} autoPlay playsInline />
-      <div className="voice-bar__diagnostics" aria-hidden="true">
+      <div className="voice__hide" aria-hidden>
         <span data-testid="local-audio-track-count">{localTrackCount}</span>
         <span data-testid="remote-audio-track-count">{remoteTrackCount}</span>
       </div>
-    </section>
+    </div>
   );
 }
 
@@ -256,23 +247,23 @@ function statusLabel(status: VoiceStatus, muted: boolean): string {
   switch (status) {
     case "idle":
     case "left":
-      return "Not in voice";
+      return "Not in a call";
     case "requesting":
-      return "Requesting mic…";
+      return "Asking for mic…";
     case "waiting":
-      return muted ? "Muted · waiting" : "In call · waiting for peer";
+      return muted ? "Muted · waiting" : "Waiting for someone";
     case "connecting":
-      return muted ? "Muted · connecting…" : "Connecting…";
+      return "Connecting…";
     case "connected":
       return muted ? "Connected · muted" : "Connected";
     case "error":
-      return "Voice unavailable";
+      return "Not working";
   }
 }
 
 function toMessage(reason: unknown): string {
   if (reason instanceof DOMException && reason.name === "NotAllowedError") {
-    return "Microphone permission was denied.";
+    return "Allow the microphone, then try again.";
   }
-  return reason instanceof Error ? reason.message : "Voice communication failed.";
+  return reason instanceof Error ? reason.message : "Voice failed.";
 }

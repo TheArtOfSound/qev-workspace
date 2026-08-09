@@ -1,7 +1,7 @@
 import React, { type ErrorInfo, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
-import "./styles.css";
+import "./product.css";
 
 type ErrorBoundaryState = {
   error: Error | null;
@@ -23,22 +23,10 @@ class QevErrorBoundary extends React.Component<{ children: ReactNode }, ErrorBou
   render(): ReactNode {
     if (this.state.error) {
       return (
-        <main className="shell crash-shell">
-          <section className="hero">
-            <div>
-              <p className="eyebrow">QEV Workspace</p>
-              <h1>App render failed.</h1>
-              <p className="lede">
-                QEV caught a client-side crash instead of leaving a blank screen. Open DevTools console for the stack trace.
-              </p>
-              <div className="safety-line">No session data was sent because the app did not finish rendering.</div>
-            </div>
-            <div className="status-card">
-              <span>Error</span>
-              <strong className="status error">render crash</strong>
-              <small>{this.state.error.message}</small>
-            </div>
-          </section>
+        <main className="crash">
+          <h1>Something broke</h1>
+          <p>Refresh the page and try again.</p>
+          <small>{this.state.error.message}</small>
         </main>
       );
     }

@@ -58,8 +58,8 @@ test("two browser windows exchange real WebRTC audio tracks", async ({ browser, 
     await expect(firstPage.getByTestId("voice-mute-button")).toHaveText("Mute");
 
     await secondPage.getByTestId("voice-leave-button").click();
-    await expect(secondPage.getByTestId("voice-status")).toHaveText("Not in voice");
-    await expect(firstPage.getByTestId("voice-status")).toContainText("waiting");
+    await expect(secondPage.getByTestId("voice-status")).toHaveText("Not in a call");
+    await expect(firstPage.getByTestId("voice-status")).toContainText(/waiting/i);
   } finally {
     await Promise.all([firstContext.close(), secondContext.close()]);
   }

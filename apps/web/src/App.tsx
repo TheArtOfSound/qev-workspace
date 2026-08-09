@@ -12,13 +12,13 @@ import { RoomList } from "./RoomList";
 import { RoomView } from "./RoomView";
 import { App as WorkspaceApp } from "./WorkspaceApp";
 import type { Room, UserProfile } from "./types";
-import "./auth.css";
-import "./rooms.css";
+import { Avatar } from "./ui";
+import "./product.css";
 
 const CURRENT_ROOM_STORAGE_KEY = "currentRoom";
 const CURRENT_ROOM_NAME_STORAGE_KEY = "currentRoomName";
 
-type MainView = "rooms" | "advanced";
+type Screen = "chat" | "tools";
 
 export function App() {
   const [token, setToken] = useState(() => getStoredToken());
@@ -30,34 +30,31 @@ export function App() {
   const [currentRoomId, setCurrentRoomId] = useState(() => readStorage(CURRENT_ROOM_STORAGE_KEY));
   const [currentRoomName, setCurrentRoomName] = useState(() => readStorage(CURRENT_ROOM_NAME_STORAGE_KEY));
   const [authReady, setAuthReady] = useState(false);
-  const [mainView, setMainView] = useState<MainView>("rooms");
-  const [roomsRefreshKey, setRoomsRefreshKey] = useState(0);
+  const [screen, setScreen] = useState<Screen>("chat");
+  const [roomsKey, setRoomsKey] = useState(0);
 
   useEffect(() => {
-    const handlePopState = (): void => setRoutePath(readPathname());
-    window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
+    const onPop = (): void => setRoutePath(readPathname());
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
   }, []);
 
   useEffect(() => {
     let cancelled = false;
 
     void (async () => {
-      let activeToken = getStoredToken();
-      if (!activeToken) {
-        activeToken = await refreshAccessToken();
-      }
-
+      let active = getStoredToken();
+      if (!active) active = await refreshAccessToken();
       if (cancelled) return;
 
-      if (!activeToken) {
+      if (!active) {
         setToken(null);
         setProfile(null);
         setAuthReady(true);
         return;
       }
 
-      setToken(activeToken);
+      setToken(active);
       const user = await fetchCurrentUser();
       if (cancelled) return;
       if (!user) {
@@ -77,21 +74,19 @@ export function App() {
 
   useEffect(() => {
     if (!authReady) return;
-
     if (!token && !isLoginRoute(routePath) && !isRegisterRoute(routePath)) {
-      navigate(loginRoute(), true, setRoutePath);
+      go(loginRoute(), true, setRoutePath);
       return;
     }
-
     if (token && (isLoginRoute(routePath) || isRegisterRoute(routePath))) {
-      navigate(mainRoute(), true, setRoutePath);
+      go(homeRoute(), true, setRoutePath);
     }
   }, [routePath, token, authReady]);
 
-  function handleAuthenticated(nextToken: string): void {
-    setToken(nextToken);
-    setProfile(profileFromToken(nextToken));
-    navigate(mainRoute(), true, setRoutePath);
+  function handleAuthenticated(next: string): void {
+    setToken(next);
+    setProfile(profileFromToken(next));
+    go(homeRoute(), true, setRoutePath);
   }
 
   function handleJoined(room: Room): void {
@@ -99,7 +94,7 @@ export function App() {
     localStorage.setItem(CURRENT_ROOM_STORAGE_KEY, room.id);
     setCurrentRoomId(room.id);
     setCurrentRoomName(room.name);
-    setMainView("rooms");
+    setScreen("chat");
   }
 
   function handleLeave(): void {
@@ -107,7 +102,7 @@ export function App() {
     localStorage.removeItem(CURRENT_ROOM_NAME_STORAGE_KEY);
     setCurrentRoomId("");
     setCurrentRoomName("");
-    setRoomsRefreshKey((value) => value + 1);
+    setRoomsKey((n) => n + 1);
   }
 
   async function handleLogout(): Promise<void> {
@@ -115,66 +110,56 @@ export function App() {
     handleLeave();
     setToken(null);
     setProfile(null);
-    navigate(loginRoute(), true, setRoutePath);
+    go(loginRoute(), true, setRoutePath);
   }
 
   if (!authReady) {
     return (
-      <main className="login-shell" data-testid="auth-loading">
-        <p>Checking session…</p>
-      </main>
+      <div className="loading" data-testid="auth-loading">
+        Loading…
+      </div>
     );
   }
 
   if (!token) return <Login onAuthenticated={handleAuthenticated} />;
 
   return (
-    <div className="app-shell" data-testid="authenticated-app">
-      <aside className="app-sidebar" data-testid="app-sidebar">
-        <div className="app-sidebar__brand">
-          <span className="app-sidebar__mark">QEV</span>
-          <div>
-            <strong>Workspace</strong>
-            <small>Rooms · chat · voice</small>
-          </div>
+    <div className="app" data-testid="authenticated-app">
+      <aside className="sidebar" data-testid="app-sidebar">
+        <div className="sidebar__top">
+          <h1>QEV</h1>
+          <p>Chat with your team</p>
         </div>
 
-        <nav className="app-sidebar__nav" aria-label="Primary">
-          <button
-            type="button"
-            className={mainView === "rooms" ? "is-active" : ""}
-            onClick={() => setMainView("rooms")}
-            data-testid="nav-rooms"
-          >
-            Rooms
-          </button>
-          <button
-            type="button"
-            className={mainView === "advanced" ? "is-active" : ""}
-            onClick={() => setMainView("advanced")}
-            data-testid="nav-advanced"
-            title="Screen share and remote-control tools"
-          >
-            Advanced
-          </button>
-        </nav>
-
-        {mainView === "rooms" ? (
+        {screen === "chat" ? (
           <RoomList
-            key={roomsRefreshKey}
+            key={roomsKey}
             activeRoomId={currentRoomId}
             onRoomJoined={handleJoined}
           />
         ) : (
-          <div className="app-sidebar__hint">
-            <p>Screen share, device identity, and remote control live here.</p>
-            <p>Day-to-day chat and voice stay under Rooms.</p>
+          <div className="sidebar__empty" style={{ margin: 12 }}>
+            Screen share tools are open on the right.
+            <br />
+            <button type="button" className="btn btn--green" style={{ marginTop: 12 }} onClick={() => setScreen("chat")}>
+              Back to chat
+            </button>
           </div>
         )}
 
-        <footer className="app-sidebar__user" data-testid="session-bar">
-          <div>
-            <strong data-testid="session-user-name">{profile?.displayName ?? "User"}</strong>
+        <button
+          type="button"
+          className="sidebar__more"
+          data-testid="nav-advanced"
+          onClick={() => setScreen((s) => (s === "tools" ? "chat" : "tools"))}
+        >
+          {screen === "tools" ? "← Chat rooms" : "Screen share tools…"}
+        </button>
+
+        <footer className="sidebar__user" data-testid="session-bar">
+          <Avatar name={profile?.displayName ?? "You"} id={profile?.id} />
+          <div className="sidebar__user-meta">
+            <strong data-testid="session-user-name">{profile?.displayName ?? "You"}</strong>
             <span data-testid="session-user-email">{profile?.email ?? ""}</span>
           </div>
           <button type="button" data-testid="logout-button" onClick={() => void handleLogout()}>
@@ -183,22 +168,16 @@ export function App() {
         </footer>
       </aside>
 
-      <main className="app-main">
-        {mainView === "advanced" ? (
-          <div className="app-advanced" data-testid="advanced-panel">
-            <header className="app-main__header">
-              <div>
-                <p className="app-main__eyebrow">Advanced tools</p>
-                <h1>Screen share & control</h1>
-                <p className="app-main__lede">
-                  Optional tools for secure remote sessions. Use Rooms for normal team chat and voice.
-                </p>
-              </div>
-              <button type="button" className="app-btn secondary" onClick={() => setMainView("rooms")}>
-                Back to rooms
+      <main className="main">
+        {screen === "tools" ? (
+          <div className="advanced" data-testid="advanced-panel">
+            <div className="advanced__bar">
+              <p>Optional tools for screen sharing. Normal chat is under rooms.</p>
+              <button type="button" className="btn btn--muted" onClick={() => setScreen("chat")}>
+                Back to chat
               </button>
-            </header>
-            <div className="app-advanced__body">
+            </div>
+            <div className="advanced__body">
               <WorkspaceApp />
             </div>
           </div>
@@ -209,14 +188,16 @@ export function App() {
             onLeave={handleLeave}
           />
         ) : (
-          <div className="app-empty" data-testid="no-room-selected">
-            <div>
-              <p className="app-main__eyebrow">Welcome</p>
-              <h1>Pick a room to get started</h1>
-              <p>
-                Create a room in the sidebar, or join one you already belong to.
-                Chat and 2-person voice live inside each room.
-              </p>
+          <div className="home" data-testid="no-room-selected">
+            <div className="home__card">
+              <div className="home__icon">#</div>
+              <h2>Pick a room</h2>
+              <p>Rooms are on the left.</p>
+              <ol>
+                <li>Type a name and hit <strong>Add</strong></li>
+                <li>Click the room</li>
+                <li>Chat — or hit <strong>Join voice</strong></li>
+              </ol>
             </div>
           </div>
         )}
@@ -225,44 +206,43 @@ export function App() {
   );
 }
 
-function navigate(path: string, replace: boolean, setRoutePath: (path: string) => void): void {
+function go(path: string, replace: boolean, setRoutePath: (path: string) => void): void {
   if (typeof window === "undefined") return;
-  const current = window.location.pathname;
-  if (current !== path) {
+  if (window.location.pathname !== path) {
     if (replace) window.history.replaceState(null, "", path);
     else window.history.pushState(null, "", path);
   }
   setRoutePath(path);
 }
 
-function mainRoute(): string {
-  return normalizeBasePath(import.meta.env.BASE_URL ?? "/");
+function homeRoute(): string {
+  return normalizeBase(import.meta.env.BASE_URL ?? "/");
 }
 
 function loginRoute(): string {
-  const base = mainRoute();
+  const base = homeRoute();
   return `${base}${base.endsWith("/") ? "" : "/"}login`;
 }
 
 function registerRoute(): string {
-  const base = mainRoute();
+  const base = homeRoute();
   return `${base}${base.endsWith("/") ? "" : "/"}register`;
 }
 
 function isLoginRoute(pathname: string): boolean {
-  return trimTrailingSlash(pathname) === trimTrailingSlash(loginRoute());
+  return trimSlash(pathname) === trimSlash(loginRoute());
 }
 
 function isRegisterRoute(pathname: string): boolean {
-  return trimTrailingSlash(pathname) === trimTrailingSlash(registerRoute());
+  return trimSlash(pathname) === trimSlash(registerRoute());
 }
 
-function normalizeBasePath(base: string): string {
-  const withLeadingSlash = base.startsWith("/") ? base : `/${base}`;
-  return withLeadingSlash.endsWith("/") ? withLeadingSlash : `${withLeadingSlash}/`;
+function normalizeBase(base: string): string {
+  const withSlash = base.startsWith("/") ? base : `/${base}`;
+  return withSlash.endsWith("/") ? withSlash : `${withSlash}/`;
 }
 
-function trimTrailingSlash(path: string): string {
+function trimSlash(path: string): string {
   return path.length > 1 ? path.replace(/\/+$/, "") : path;
 }
 

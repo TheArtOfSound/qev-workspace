@@ -20,6 +20,7 @@ import { SignalingClient, type SignalingStatus } from "./signaling";
 import { QevPeer } from "./webrtc";
 import { detectMediaPrivacyCapability, type MediaPrivacyCapability } from "./mediaPrivacy";
 import { buildAgentCommand, buildAgentLaunchUrl, createPointerGrant, isGrantActive, type ControlGrant } from "./control";
+import "./styles.css";
 
 const DEFAULT_RELAY_URL = import.meta.env.VITE_RELAY_URL ?? "wss://qev-workspace.onrender.com/ws";
 const LOCAL_AGENT_URL = "http://127.0.0.1:39483";

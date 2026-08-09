@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { AuthenticationError, ConfigurationError, login, register } from "./auth";
-import "./auth.css";
+import "./product.css";
 
 type LoginProps = {
   onAuthenticated: (token: string) => void;
@@ -30,7 +30,7 @@ export function Login({ onAuthenticated }: LoginProps) {
       if (reason instanceof ConfigurationError || reason instanceof AuthenticationError) {
         setError(reason.message);
       } else {
-        setError(reason instanceof Error ? reason.message : "Authentication failed.");
+        setError(reason instanceof Error ? reason.message : "That didn't work. Try again.");
       }
     } finally {
       setSubmitting(false);
@@ -38,20 +38,19 @@ export function Login({ onAuthenticated }: LoginProps) {
   }
 
   return (
-    <main className="login-shell" data-testid="login-view">
-      <section className="login-card" aria-labelledby="login-title">
-        <div>
-          <p className="eyebrow">QEV Workspace</p>
-          <h1 id="login-title">{mode === "register" ? "Create account" : "Sign in"}</h1>
-          <p className="login-card__lede">
-            Authenticate before opening persistent rooms, text chat, voice, or remote collaboration tools.
-          </p>
-        </div>
+    <main className="login" data-testid="login-view">
+      <section className="login__card">
+        <h1 id="login-title">{mode === "register" ? "Create account" : "Welcome back"}</h1>
+        <p>
+          {mode === "register"
+            ? "Pick a name, email, and password to start chatting."
+            : "Log in to join rooms, chat, and talk."}
+        </p>
 
-        <form className="login-form" onSubmit={handleSubmit}>
+        <form className="login__form" onSubmit={handleSubmit}>
           {mode === "register" ? (
-            <>
-              <label htmlFor="qev-register-name">Display name</label>
+            <div className="login__field">
+              <label htmlFor="qev-register-name">Your name</label>
               <input
                 id="qev-register-name"
                 data-testid="register-display-name"
@@ -60,62 +59,69 @@ export function Login({ onAuthenticated }: LoginProps) {
                 onChange={(event) => setDisplayName(event.target.value)}
                 autoComplete="nickname"
                 maxLength={80}
+                placeholder="Alex"
                 disabled={submitting}
               />
-            </>
+            </div>
           ) : null}
 
-          <label htmlFor="qev-login-email">Email</label>
-          <input
-            id="qev-login-email"
-            data-testid="login-email"
-            type="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            autoComplete="email"
-            required
-            disabled={submitting}
-          />
+          <div className="login__field">
+            <label htmlFor="qev-login-email">Email</label>
+            <input
+              id="qev-login-email"
+              data-testid="login-email"
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              autoComplete="email"
+              required
+              placeholder="you@email.com"
+              disabled={submitting}
+            />
+          </div>
 
-          <label htmlFor="qev-login-password">Password</label>
-          <input
-            id="qev-login-password"
-            data-testid="login-password"
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            autoComplete={mode === "register" ? "new-password" : "current-password"}
-            minLength={8}
-            required
-            disabled={submitting}
-          />
+          <div className="login__field">
+            <label htmlFor="qev-login-password">Password</label>
+            <input
+              id="qev-login-password"
+              data-testid="login-password"
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              autoComplete={mode === "register" ? "new-password" : "current-password"}
+              minLength={8}
+              required
+              placeholder="At least 8 characters"
+              disabled={submitting}
+            />
+          </div>
 
           {error ? (
-            <p className="login-form__error" data-testid="login-error" role="alert">
+            <p className="login__error" data-testid="login-error" role="alert">
               {error}
             </p>
           ) : null}
 
-          <button data-testid="login-submit" type="submit" disabled={submitting}>
+          <button className="login__submit" data-testid="login-submit" type="submit" disabled={submitting}>
             {submitting
-              ? (mode === "register" ? "Creating account…" : "Signing in…")
-              : (mode === "register" ? "Create account" : "Sign in")}
+              ? (mode === "register" ? "Creating…" : "Logging in…")
+              : (mode === "register" ? "Create account" : "Log in")}
           </button>
         </form>
 
-        <p className="login-card__switch">
+        <p className="login__switch">
           {mode === "login" ? (
             <>
-              Need an account?{" "}
+              New here?{" "}
               <button type="button" data-testid="switch-to-register" onClick={() => setMode("register")}>
-                Register
+                Create an account
               </button>
             </>
           ) : (
             <>
-              Already registered?{" "}
+              Already have an account?{" "}
               <button type="button" data-testid="switch-to-login" onClick={() => setMode("login")}>
-                Sign in
+                Log in
               </button>
             </>
           )}

@@ -1,99 +1,95 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
-import { profileFromToken, getStoredToken } from "./auth";
+import { getStoredToken, profileFromToken } from "./auth";
 import { getMessages, sendMessage } from "./chat";
 import type { ChatMessage } from "./types";
-import "./rooms.css";
+import { Avatar } from "./ui";
 
-const CHAT_REFRESH_INTERVAL_MS = 3_000;
+const POLL_MS = 3_000;
 
 type ChatBoxProps = {
   roomId: string;
+  roomName?: string;
 };
 
-export function ChatBox({ roomId }: ChatBoxProps) {
+export function ChatBox({ roomId, roomName }: ChatBoxProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
-  const messageListRef = useRef<HTMLDivElement | null>(null);
-  const requestSequenceRef = useRef(0);
-  const seenIdsRef = useRef(new Set<string>());
-  const stickToBottomRef = useRef(true);
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const seqRef = useRef(0);
+  const seenRef = useRef(new Set<string>());
+  const stickBottom = useRef(true);
 
   const profile = (() => {
     const token = getStoredToken();
     return token ? profileFromToken(token) : null;
   })();
 
-  const refreshMessages = useCallback(async (showLoading = false): Promise<void> => {
-    const sequence = requestSequenceRef.current + 1;
-    requestSequenceRef.current = sequence;
-
+  const refresh = useCallback(async (showLoading = false): Promise<void> => {
+    const seq = seqRef.current + 1;
+    seqRef.current = seq;
     if (showLoading) setLoading(true);
 
     try {
-      const nextMessages = await getMessages(roomId);
-      if (requestSequenceRef.current === sequence) {
-        const deduped: ChatMessage[] = [];
-        const nextSeen = new Set<string>();
-        for (const message of nextMessages) {
-          const key = message.id ?? `${message.timestamp}:${message.sender}:${message.content}`;
-          if (nextSeen.has(key)) continue;
-          nextSeen.add(key);
-          deduped.push(message);
-        }
-        seenIdsRef.current = nextSeen;
-        setMessages(deduped);
-        setError("");
+      const next = await getMessages(roomId);
+      if (seqRef.current !== seq) return;
+
+      const deduped: ChatMessage[] = [];
+      const seen = new Set<string>();
+      for (const message of next) {
+        const key = message.id ?? `${message.timestamp}:${message.sender}:${message.content}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        deduped.push(message);
       }
+      seenRef.current = seen;
+      setMessages(deduped);
+      setError("");
     } catch (reason) {
-      if (requestSequenceRef.current === sequence) setError(toMessage(reason));
+      if (seqRef.current === seq) setError(toMessage(reason));
     } finally {
-      if (requestSequenceRef.current === sequence) setLoading(false);
+      if (seqRef.current === seq) setLoading(false);
     }
   }, [roomId]);
 
   useEffect(() => {
-    void refreshMessages(true);
-    const timer = window.setInterval(() => void refreshMessages(false), CHAT_REFRESH_INTERVAL_MS);
+    void refresh(true);
+    const timer = window.setInterval(() => void refresh(false), POLL_MS);
     return () => window.clearInterval(timer);
-  }, [refreshMessages]);
+  }, [refresh]);
 
   useEffect(() => {
-    const list = messageListRef.current;
-    if (list && stickToBottomRef.current) {
-      list.scrollTop = list.scrollHeight;
-    }
+    const el = listRef.current;
+    if (el && stickBottom.current) el.scrollTop = el.scrollHeight;
   }, [messages]);
 
-  function handleScroll(): void {
-    const list = messageListRef.current;
-    if (!list) return;
-    const distanceFromBottom = list.scrollHeight - list.scrollTop - list.clientHeight;
-    stickToBottomRef.current = distanceFromBottom < 80;
+  function onScroll(): void {
+    const el = listRef.current;
+    if (!el) return;
+    stickBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 72;
   }
 
   async function handleSend(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
-
-    const normalizedContent = content.trim();
-    if (!normalizedContent || sending) return;
+    const text = content.trim();
+    if (!text || sending) return;
 
     setSending(true);
     setError("");
 
     try {
-      const created = await sendMessage(roomId, normalizedContent);
+      const created = await sendMessage(roomId, text);
       setContent("");
-      stickToBottomRef.current = true;
+      stickBottom.current = true;
       setMessages((current) => {
         const key = created.id ?? `${created.timestamp}:${created.sender}:${created.content}`;
-        if (seenIdsRef.current.has(key)) return current;
-        seenIdsRef.current.add(key);
-        return [...current, created].sort((left, right) => left.timestamp - right.timestamp);
+        if (seenRef.current.has(key)) return current;
+        seenRef.current.add(key);
+        return [...current, created].sort((a, b) => a.timestamp - b.timestamp);
       });
-      await refreshMessages(false);
+      await refresh(false);
     } catch (reason) {
       setError(toMessage(reason));
     } finally {
@@ -102,50 +98,55 @@ export function ChatBox({ roomId }: ChatBoxProps) {
   }
 
   return (
-    <section className="room-chat" data-testid="chat-box" aria-label="Messages">
+    <section className="chat" data-testid="chat-box">
       {error ? (
-        <p className="room-chat__error" role="alert">
+        <p className="chat__error" role="alert">
           {error}
         </p>
       ) : null}
 
       <div
-        className="room-chat__messages"
+        className="chat__scroll"
         data-testid="chat-message-list"
-        ref={messageListRef}
-        onScroll={handleScroll}
+        ref={listRef}
+        onScroll={onScroll}
         aria-live="polite"
       >
-        {loading ? (
-          <p className="room-chat__empty">Loading messages…</p>
-        ) : messages.length === 0 ? (
-          <div className="room-chat__empty-state">
-            <h2>No messages yet</h2>
-            <p>Say hello — this is the start of #{/* room filled by parent context */}</p>
-            <p data-testid="chat-sender-label">
-              You&apos;re posting as <strong>{profile?.displayName ?? "you"}</strong>
-            </p>
-          </div>
-        ) : (
-          messages.map((message, index) => (
-            <article
-              className="room-chat__message"
-              data-testid="chat-message"
-              key={message.id ?? `${message.timestamp}-${message.sender}-${index}`}
-            >
-              <header>
+        <div className="chat__welcome">
+          <h3>#{roomName || "room"}</h3>
+          <p>
+            {loading
+              ? "Loading messages…"
+              : messages.length === 0
+                ? "This is the start of the room. Say hi!"
+                : "Scroll up for older messages."}
+          </p>
+          <p data-testid="chat-sender-label" className="sr-only">
+            Posting as {profile?.displayName ?? "you"}
+          </p>
+        </div>
+
+        {messages.map((message, index) => (
+          <article
+            className="msg"
+            data-testid="chat-message"
+            key={message.id ?? `${message.timestamp}-${message.sender}-${index}`}
+          >
+            <Avatar name={message.sender} id={message.senderUserId} />
+            <div className="msg__body">
+              <div className="msg__head">
                 <strong>{message.sender}</strong>
                 <time dateTime={new Date(message.timestamp).toISOString()}>
-                  {formatTimestamp(message.timestamp)}
+                  {formatTime(message.timestamp)}
                 </time>
-              </header>
+              </div>
               <p>{message.content}</p>
-            </article>
-          ))
-        )}
+            </div>
+          </article>
+        ))}
       </div>
 
-      <form className="room-chat__composer" onSubmit={handleSend}>
+      <form className="chat__compose" onSubmit={handleSend}>
         <label htmlFor="chat-message-content" className="sr-only">
           Message
         </label>
@@ -154,23 +155,19 @@ export function ChatBox({ roomId }: ChatBoxProps) {
           data-testid="chat-message-input"
           value={content}
           onChange={(event: ChangeEvent<HTMLInputElement>) => setContent(event.target.value)}
-          placeholder={`Message as ${profile?.displayName ?? "you"}`}
+          placeholder={`Message #${roomName || "room"}`}
           maxLength={2_000}
           autoComplete="off"
         />
-        <button
-          data-testid="chat-send-button"
-          type="submit"
-          disabled={sending || !content.trim()}
-        >
-          {sending ? "Sending…" : "Send"}
+        <button data-testid="chat-send-button" type="submit" disabled={sending || !content.trim()}>
+          {sending ? "…" : "Send"}
         </button>
       </form>
     </section>
   );
 }
 
-function formatTimestamp(timestamp: number): string {
+function formatTime(timestamp: number): string {
   return new Intl.DateTimeFormat(undefined, {
     hour: "numeric",
     minute: "2-digit",
@@ -178,5 +175,5 @@ function formatTimestamp(timestamp: number): string {
 }
 
 function toMessage(reason: unknown): string {
-  return reason instanceof Error ? reason.message : "The chat operation failed.";
+  return reason instanceof Error ? reason.message : "Couldn't send. Try again.";
 }

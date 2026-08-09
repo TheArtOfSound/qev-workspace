@@ -5,7 +5,6 @@ test("login stores a JWT, opens the app, and remains authenticated after reload"
   const password = "qev-test-password";
 
   await page.goto("/");
-  await expect(page).toHaveURL(/\/login$/);
   await expect(page.getByTestId("login-view")).toBeVisible();
 
   await page.getByTestId("switch-to-register").click();

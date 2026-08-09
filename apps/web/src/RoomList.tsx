@@ -1,7 +1,6 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { createRoom, getRooms, joinRoom } from "./rooms";
 import type { Room } from "./types";
-import "./rooms.css";
 
 type RoomListProps = {
   onRoomJoined: (room: Room) => void;
@@ -13,15 +12,15 @@ export function RoomList({ onRoomJoined, activeRoomId = "" }: RoomListProps) {
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [joiningRoomId, setJoiningRoomId] = useState("");
+  const [busyId, setBusyId] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
 
     void getRooms()
-      .then((nextRooms) => {
-        if (!cancelled) setRooms(nextRooms);
+      .then((next) => {
+        if (!cancelled) setRooms(next);
       })
       .catch((reason: unknown) => {
         if (!cancelled) setError(toMessage(reason));
@@ -37,14 +36,14 @@ export function RoomList({ onRoomJoined, activeRoomId = "" }: RoomListProps) {
 
   async function handleCreate(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
-    const normalizedName = name.trim();
-    if (!normalizedName || submitting) return;
+    const roomName = name.trim();
+    if (!roomName || submitting) return;
 
     setSubmitting(true);
     setError("");
 
     try {
-      const room = await createRoom(normalizedName);
+      const room = await createRoom(roomName);
       setRooms((current) => [room, ...current.filter((item) => item.id !== room.id)]);
       setName("");
       await joinRoom(room.id);
@@ -57,12 +56,13 @@ export function RoomList({ onRoomJoined, activeRoomId = "" }: RoomListProps) {
   }
 
   async function handleOpen(room: Room): Promise<void> {
-    if (joiningRoomId || room.id === activeRoomId) {
-      if (room.id === activeRoomId) onRoomJoined(room);
+    if (busyId) return;
+    if (room.id === activeRoomId) {
+      onRoomJoined(room);
       return;
     }
 
-    setJoiningRoomId(room.id);
+    setBusyId(room.id);
     setError("");
 
     try {
@@ -71,19 +71,15 @@ export function RoomList({ onRoomJoined, activeRoomId = "" }: RoomListProps) {
     } catch (reason) {
       setError(toMessage(reason));
     } finally {
-      setJoiningRoomId("");
+      setBusyId("");
     }
   }
 
   return (
-    <section className="channel-list" data-testid="room-list" aria-label="Your rooms">
-      <div className="channel-list__header">
-        <h2>Rooms</h2>
-      </div>
-
-      <form className="channel-list__create" onSubmit={handleCreate}>
+    <div className="channel-list-root" data-testid="room-list">
+      <form className="sidebar__create" onSubmit={handleCreate}>
         <label htmlFor="room-name" className="sr-only">
-          New room name
+          Room name
         </label>
         <input
           id="room-name"
@@ -94,59 +90,52 @@ export function RoomList({ onRoomJoined, activeRoomId = "" }: RoomListProps) {
           maxLength={100}
           autoComplete="off"
         />
-        <button
-          data-testid="create-room-button"
-          type="submit"
-          disabled={submitting || !name.trim()}
-          title="Create room"
-        >
-          {submitting ? "…" : "+"}
+        <button data-testid="create-room-button" type="submit" disabled={submitting || !name.trim()}>
+          {submitting ? "…" : "Add"}
         </button>
       </form>
 
       {error ? (
-        <p className="channel-list__error" role="alert">
+        <p className="sidebar__error" role="alert">
           {error}
         </p>
       ) : null}
 
-      <div className="channel-list__scroll">
+      <p className="sidebar__label">Your rooms</p>
+
+      <div className="sidebar__rooms">
         {loading ? (
-          <p className="channel-list__empty">Loading rooms…</p>
+          <p className="sidebar__empty">Loading…</p>
         ) : rooms.length === 0 ? (
-          <p className="channel-list__empty" data-testid="rooms-empty">
-            No rooms yet. Create one above.
+          <p className="sidebar__empty" data-testid="rooms-empty">
+            No rooms yet.
+            <br />
+            Type a name above and hit <strong>Add</strong>.
           </p>
         ) : (
-          <ul className="channel-list__items">
-            {rooms.map((room) => {
-              const isActive = room.id === activeRoomId;
-              const isJoining = joiningRoomId === room.id;
-              return (
-                <li key={room.id}>
-                  <button
-                    type="button"
-                    className={`channel-item${isActive ? " is-active" : ""}`}
-                    data-testid="room-card"
-                    onClick={() => void handleOpen(room)}
-                    disabled={Boolean(joiningRoomId) && !isJoining}
-                  >
-                    <span className="channel-item__hash">#</span>
-                    <span className="channel-item__name">{room.name}</span>
-                    <span className="channel-item__meta">
-                      {isJoining ? "Opening…" : `${room.members.length}`}
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+          rooms.map((room) => {
+            const isOn = room.id === activeRoomId;
+            const busy = busyId === room.id;
+            return (
+              <button
+                key={room.id}
+                type="button"
+                className={`room-btn${isOn ? " is-on" : ""}`}
+                data-testid="room-card"
+                onClick={() => void handleOpen(room)}
+                disabled={Boolean(busyId) && !busy}
+              >
+                <span className="room-btn__hash">#</span>
+                <span className="room-btn__name">{busy ? "Opening…" : room.name}</span>
+              </button>
+            );
+          })
         )}
       </div>
-    </section>
+    </div>
   );
 }
 
 function toMessage(reason: unknown): string {
-  return reason instanceof Error ? reason.message : "The room operation failed.";
+  return reason instanceof Error ? reason.message : "Couldn't do that. Try again.";
 }
