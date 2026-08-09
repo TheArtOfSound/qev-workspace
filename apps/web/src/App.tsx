@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   clearStoredToken,
   fetchCurrentUser,
@@ -10,20 +10,15 @@ import {
 import { Login } from "./Login";
 import { RoomList } from "./RoomList";
 import { RoomView } from "./RoomView";
+import { SimpleShare } from "./SimpleShare";
 import type { Room, UserProfile } from "./types";
 import { Avatar } from "./ui";
 import "./product.css";
 
-// Lazy so lab console CSS never loads on the chat path until user asks for tools.
-const WorkspaceApp = lazy(async () => {
-  const mod = await import("./WorkspaceApp");
-  return { default: mod.App };
-});
-
 const CURRENT_ROOM_STORAGE_KEY = "currentRoom";
 const CURRENT_ROOM_NAME_STORAGE_KEY = "currentRoomName";
 
-type Screen = "chat" | "tools";
+type Screen = "chat" | "share";
 
 export function App() {
   const [token, setToken] = useState(() => getStoredToken());
@@ -144,9 +139,14 @@ export function App() {
           />
         ) : (
           <div className="sidebar__empty" style={{ margin: 12 }}>
-            Screen share tools are open on the right.
+            Screen share is open.
             <br />
-            <button type="button" className="btn btn--green" style={{ marginTop: 12 }} onClick={() => setScreen("chat")}>
+            <button
+              type="button"
+              className="btn btn--green"
+              style={{ marginTop: 12 }}
+              onClick={() => setScreen("chat")}
+            >
               Back to chat
             </button>
           </div>
@@ -156,9 +156,9 @@ export function App() {
           type="button"
           className="sidebar__more"
           data-testid="nav-advanced"
-          onClick={() => setScreen((s) => (s === "tools" ? "chat" : "tools"))}
+          onClick={() => setScreen((s) => (s === "share" ? "chat" : "share"))}
         >
-          {screen === "tools" ? "← Chat rooms" : "Screen share tools…"}
+          {screen === "share" ? "← Chat rooms" : "Share screen"}
         </button>
 
         <footer className="sidebar__user" data-testid="session-bar">
@@ -176,20 +176,8 @@ export function App() {
       </aside>
 
       <main className="main">
-        {screen === "tools" ? (
-          <div className="advanced" data-testid="advanced-panel">
-            <div className="advanced__bar">
-              <p>Optional tools for screen sharing. Normal chat is under rooms.</p>
-              <button type="button" className="btn btn--muted" onClick={() => setScreen("chat")}>
-                Back to chat
-              </button>
-            </div>
-            <div className="advanced__body">
-              <Suspense fallback={<div className="loading">Loading tools…</div>}>
-                <WorkspaceApp />
-              </Suspense>
-            </div>
-          </div>
+        {screen === "share" ? (
+          <SimpleShare onBack={() => setScreen("chat")} />
         ) : currentRoomId ? (
           <RoomView
             roomId={currentRoomId}
